@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="accessibility_service_description">Used by Doomscroll Detox to detect when you open distracting apps so it can show you the breathing timer.</string>
+</resources>
