@@ -55,7 +55,6 @@ class _InterventionScreenState extends State<InterventionScreen>
         _timer?.cancel();
       }
     });
-    
   }
 
   @override
@@ -163,7 +162,7 @@ class _InterventionScreenState extends State<InterventionScreen>
                     style: TextStyle(color: Colors.white),
                   ),
                 ),
-              if (widget.debugInfo != null) ...[
+              /* if (widget.debugInfo != null) ...[
                 const SizedBox(height: 20),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -176,7 +175,7 @@ class _InterventionScreenState extends State<InterventionScreen>
                     ),
                   ),
                 ),
-              ],
+              ], */
             ],
           ),
         ),
