@@ -54,21 +54,25 @@ class _MainNavigationState extends State<MainNavigation> {
   void _setupMethodChannel() {
     platform.setMethodCallHandler((call) async {
       if (call.method == "triggerIntervention") {
-        final String? packageName = call.arguments as String?;
-        if (packageName != null) {
-          _launchIntervention(packageName);
+        final args = call.arguments;
+        if (args is Map) {
+          _launchIntervention(args['package'] as String, args['debug'] as String?);
+        } else if (args is String) {
+          _launchIntervention(args, null);
         }
       }
     });
 
-    platform.invokeMethod('getPendingIntervention').then((packageName) {
-      if (packageName != null && packageName is String) {
-        _launchIntervention(packageName);
+    platform.invokeMethod('getPendingIntervention').then((args) {
+      if (args != null && args is Map && args['package'] != null) {
+        _launchIntervention(args['package'] as String, args['debug'] as String?);
+      } else if (args != null && args is String) {
+        _launchIntervention(args, null);
       }
     });
   }
 
-  Future<void> _launchIntervention(String packageName) async {
+  Future<void> _launchIntervention(String packageName, String? debugInfo) async {
     final prefs = await SharedPreferences.getInstance();
     final waitTime = prefs.getInt('wait_time_seconds') ?? 10;
     
@@ -77,6 +81,7 @@ class _MainNavigationState extends State<MainNavigation> {
         builder: (context) => InterventionScreen(
           waitTimeSeconds: waitTime,
           targetAppName: packageName,
+          debugInfo: debugInfo,
         ),
       ),
     );

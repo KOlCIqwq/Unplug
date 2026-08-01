@@ -35,7 +35,6 @@ class MainActivity: FlutterActivity() {
                     if (packageName != null) {
                         AppBlockerService.allowApp(packageName)
                         
-                        // Launch the target app natively for reliability
                         val launchIntent = packageManager.getLaunchIntentForPackage(packageName)
                         if (launchIntent != null) {
                             launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
