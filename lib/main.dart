@@ -87,11 +87,9 @@ class _MainNavigationState extends State<MainNavigation> {
     );
 
     if (proceeded == false || proceeded == null) {
-      final currentCount = prefs.getInt('cancel_count') ?? 0;
-      await prefs.setInt('cancel_count', currentCount + 1);
-      await platform.invokeMethod('goHome'); // Kick them back to the home screen!
+      await platform.invokeMethod('goHome'); // Kick them back to the home screen
     } else if (proceeded == true) {
-      // Native side will whitelist it and launch it reliably
+      // Native side will whitelist it, decrement the optimistic resist counter, and launch it
       await platform.invokeMethod('allowAppTemporarily', packageName);
     }
   }

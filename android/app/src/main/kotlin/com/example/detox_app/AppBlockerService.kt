@@ -92,6 +92,10 @@ class AppBlockerService : AccessibilityService() {
                 if (blockedApps.contains(effectivePackage)) {
                     Log.d(TAG, "Blocked app launched: $effectivePackage")
                     
+                    // Increment resist count immediately so app termination or home navigation is captured
+                    val currentCount = prefs.getInt("flutter.cancel_count", 0)
+                    prefs.edit().putInt("flutter.cancel_count", currentCount + 1).apply()
+
                     val launchIntent = Intent(this, MainActivity::class.java).apply {
                         addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
                         putExtra("blocked_package", effectivePackage)

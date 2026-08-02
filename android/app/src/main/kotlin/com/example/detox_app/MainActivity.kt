@@ -33,6 +33,13 @@ class MainActivity: FlutterActivity() {
                 "allowAppTemporarily" -> {
                     val packageName = call.arguments as String?
                     if (packageName != null) {
+                        // User proceeded; revert the optimistic resist increment
+                        val prefs = getSharedPreferences("FlutterSharedPreferences", MODE_PRIVATE)
+                        val currentCount = prefs.getInt("flutter.cancel_count", 0)
+                        if (currentCount > 0) {
+                            prefs.edit().putInt("flutter.cancel_count", currentCount - 1).apply()
+                        }
+
                         AppBlockerService.allowApp(packageName)
                         
                         // Launch the target app natively for reliability

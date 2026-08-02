@@ -18,11 +18,13 @@ class InterventionScreen extends StatefulWidget {
 }
 
 class _InterventionScreenState extends State<InterventionScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   late int _remainingSeconds;
   Timer? _timer;
   late AnimationController _animationController;
   late Animation<double> _scaleAnimation;
+  bool _proceeded = false;
+  int _selectedMinutes = 5;
 
   @override
   void initState() {
@@ -43,6 +45,16 @@ class _InterventionScreenState extends State<InterventionScreen>
     );
 
     _startTimer();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if ((state == AppLifecycleState.paused || state == AppLifecycleState.hidden) && !_proceeded) {
+      if (mounted) {
+        Navigator.of(context).pop(false);
+      }
+    }
   }
 
   void _startTimer() {
@@ -59,6 +71,7 @@ class _InterventionScreenState extends State<InterventionScreen>
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _timer?.cancel();
     _animationController.dispose();
     super.dispose();
@@ -126,13 +139,40 @@ class _InterventionScreenState extends State<InterventionScreen>
 
               const SizedBox(height: 40),
 
+              int _selectedMinutes = 5;
+
               // Action Buttons
-              if (_remainingSeconds == 0)
+              if (_remainingSeconds == 0) ...[
+                Text(
+                  'Set your session limit',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: Colors.white70,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Wrap(
+                  spacing: 8,
+                  children: [1, 3, 5, 10, 15, 20].map((mins) {
+                    final isSelected = _selectedMinutes == mins;
+                    return ChoiceChip(
+                      label: Text('$mins min${mins > 1 ? 's' : ''}'),
+                      selected: isSelected,
+                      selectedColor: Theme.of(context).colorScheme.primary,
+                      onSelected: (selected) {
+                        if (selected) {
+                          setState(() {
+                            _selectedMinutes = mins;
+                          });
+                        }
+                      },
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 24),
                 ElevatedButton(
                   onPressed: () {
-                    // Logic to actually open the app goes here
-                    // For now, just return true (meaning user proceeded)
-                    Navigator.of(context).pop(true);
+                    _proceeded = true;
+                    Navigator.of(context).pop(_selectedMinutes);
                   },
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(
@@ -142,9 +182,9 @@ class _InterventionScreenState extends State<InterventionScreen>
                     backgroundColor: Theme.of(context).colorScheme.primary,
                     foregroundColor: Theme.of(context).colorScheme.onPrimary,
                   ),
-                  child: Text('Continue to ${widget.targetAppName}'),
-                )
-              else
+                  child: Text('Continue for $_selectedMinutes min${_selectedMinutes > 1 ? 's' : ''}'),
+                ),
+              ] else
                 OutlinedButton(
                   onPressed: () {
                     // User successfully resisted the urge! Return false.
