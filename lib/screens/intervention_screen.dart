@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
+import '../services/prompt_service.dart';
 
 class InterventionScreen extends StatefulWidget {
   final int waitTimeSeconds;
@@ -26,6 +27,7 @@ class _InterventionScreenState extends State<InterventionScreen>
   bool _proceeded = false;
   bool _isPopped = false;
   int _selectedMinutes = 5;
+  String _phrase = PromptService.getRandomPrompt();
 
   @override
   void initState() {
@@ -46,7 +48,26 @@ class _InterventionScreenState extends State<InterventionScreen>
     );
 
     _startTimer();
+    _fetchDynamicPhrase();
     WidgetsBinding.instance.addObserver(this);
+  }
+
+  void _fetchDynamicPhrase() {
+    PromptService.getInitialPrompt().then((initial) {
+      if (mounted && initial.isNotEmpty) {
+        setState(() {
+          _phrase = initial;
+        });
+      }
+    });
+
+    PromptService.fetchMindfulPrompt().then((fetched) {
+      if (mounted && fetched != null && fetched.isNotEmpty) {
+        setState(() {
+          _phrase = fetched;
+        });
+      }
+    });
   }
 
   @override
@@ -90,13 +111,23 @@ class _InterventionScreenState extends State<InterventionScreen>
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text(
-                'Take a deep breath...',
-                style: Theme.of(
-                  context,
-                ).textTheme.headlineSmall?.copyWith(color: Colors.white70),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 32.0),
+                child: Text(
+                  _phrase,
+                  textAlign: TextAlign.center,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleLarge?.copyWith(
+                    color: Colors.white.withOpacity(0.9),
+                    fontWeight: FontWeight.w400,
+                    fontStyle: FontStyle.italic,
+                    height: 1.4,
+                    letterSpacing: 0.2,
+                  ),
+                ),
               ),
-              const SizedBox(height: 60),
+              const SizedBox(height: 45),
 
               // Breathing Circle Animation
               SizedBox(
