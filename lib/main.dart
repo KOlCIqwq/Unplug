@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:installed_apps/installed_apps.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/intervention_screen.dart';
 import 'screens/app_selector_screen.dart';
@@ -52,7 +51,7 @@ class _MainNavigationState extends State<MainNavigation> {
   void initState() {
     super.initState();
     _setupMethodChannel();
-    PromptService.fetchAndCacheQuotes();
+    PromptService.checkAndFetchDailyQuotes();
   }
 
   void _setupMethodChannel() {
