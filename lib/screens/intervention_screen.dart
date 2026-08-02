@@ -24,6 +24,7 @@ class _InterventionScreenState extends State<InterventionScreen>
   late AnimationController _animationController;
   late Animation<double> _scaleAnimation;
   bool _proceeded = false;
+  bool _isPopped = false;
   int _selectedMinutes = 5;
 
   @override
@@ -50,8 +51,9 @@ class _InterventionScreenState extends State<InterventionScreen>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if ((state == AppLifecycleState.paused || state == AppLifecycleState.hidden) && !_proceeded) {
-      if (mounted) {
+    if ((state == AppLifecycleState.paused || state == AppLifecycleState.hidden) && !_proceeded && !_isPopped) {
+      if (mounted && Navigator.of(context).canPop()) {
+        _isPopped = true;
         Navigator.of(context).pop(false);
       }
     }
@@ -139,8 +141,6 @@ class _InterventionScreenState extends State<InterventionScreen>
 
               const SizedBox(height: 40),
 
-              int _selectedMinutes = 5;
-
               // Action Buttons
               if (_remainingSeconds == 0) ...[
                 Text(
@@ -171,6 +171,8 @@ class _InterventionScreenState extends State<InterventionScreen>
                 const SizedBox(height: 24),
                 ElevatedButton(
                   onPressed: () {
+                    if (_isPopped) return;
+                    _isPopped = true;
                     _proceeded = true;
                     Navigator.of(context).pop(_selectedMinutes);
                   },
@@ -187,6 +189,8 @@ class _InterventionScreenState extends State<InterventionScreen>
               ] else
                 OutlinedButton(
                   onPressed: () {
+                    if (_isPopped) return;
+                    _isPopped = true;
                     // User successfully resisted the urge! Return false.
                     Navigator.of(context).pop(false);
                   },

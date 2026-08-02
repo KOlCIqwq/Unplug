@@ -45,6 +45,8 @@ class _MainNavigationState extends State<MainNavigation> {
   int _selectedIndex = 0;
   static const platform = MethodChannel('com.example.detox_app/intervention');
 
+  bool _isInterventionActive = false;
+
   @override
   void initState() {
     super.initState();
@@ -63,34 +65,53 @@ class _MainNavigationState extends State<MainNavigation> {
       }
     });
 
-    platform.invokeMethod('getPendingIntervention').then((args) {
-      if (args != null && args is Map && args['package'] != null) {
-        _launchIntervention(args['package'] as String, args['debug'] as String?);
-      } else if (args != null && args is String) {
-        _launchIntervention(args, null);
-      }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      platform.invokeMethod('getPendingIntervention').then((args) {
+        if (args != null && args is Map && args['package'] != null) {
+          _launchIntervention(args['package'] as String, args['debug'] as String?);
+        } else if (args != null && args is String) {
+          _launchIntervention(args, null);
+        }
+      });
     });
   }
 
   Future<void> _launchIntervention(String packageName, String? debugInfo) async {
-    final prefs = await SharedPreferences.getInstance();
-    final waitTime = prefs.getInt('wait_time_seconds') ?? 10;
-    
-    final proceeded = await navigatorKey.currentState?.push(
-      MaterialPageRoute(
-        builder: (context) => InterventionScreen(
-          waitTimeSeconds: waitTime,
-          targetAppName: packageName,
-          debugInfo: debugInfo,
-        ),
-      ),
-    );
+    if (_isInterventionActive) return;
+    _isInterventionActive = true;
 
-    if (proceeded == false || proceeded == null) {
-      await platform.invokeMethod('goHome'); // Kick them back to the home screen
-    } else if (proceeded == true) {
-      // Native side will whitelist it, decrement the optimistic resist counter, and launch it
-      await platform.invokeMethod('allowAppTemporarily', packageName);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final waitTime = prefs.getInt('wait_time_seconds') ?? 10;
+      
+      await Future.delayed(Duration.zero);
+
+      final proceeded = await navigatorKey.currentState?.push(
+        MaterialPageRoute(
+          builder: (context) => InterventionScreen(
+            waitTimeSeconds: waitTime,
+            targetAppName: packageName,
+            debugInfo: debugInfo,
+          ),
+        ),
+      );
+
+      if (proceeded == false || proceeded == null) {
+        await platform.invokeMethod('goHome'); // Kick them back to the home screen
+      } else if (proceeded is int) {
+        // Native side will whitelist it for the chosen minutes, decrement the optimistic resist counter, and launch it
+        await platform.invokeMethod('allowAppTemporarily', {
+          'package': packageName,
+          'durationMinutes': proceeded,
+        });
+      } else if (proceeded == true) {
+        await platform.invokeMethod('allowAppTemporarily', {
+          'package': packageName,
+          'durationMinutes': 5,
+        });
+      }
+    } finally {
+      _isInterventionActive = false;
     }
   }
 

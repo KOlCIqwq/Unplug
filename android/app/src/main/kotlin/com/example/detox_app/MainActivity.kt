@@ -11,6 +11,15 @@ class MainActivity: FlutterActivity() {
     private var blockedPackageIntent: String? = null
     private var debugInfoIntent: String? = null
 
+    override fun onCreate(savedInstanceState: android.os.Bundle?) {
+        super.onCreate(savedInstanceState)
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            if (checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 1002)
+            }
+        }
+    }
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         
@@ -31,7 +40,10 @@ class MainActivity: FlutterActivity() {
                     result.success(true)
                 }
                 "allowAppTemporarily" -> {
-                    val packageName = call.arguments as String?
+                    val args = call.arguments as? Map<*, *>
+                    val packageName = args?.get("package") as? String ?: call.arguments as? String
+                    val durationMinutes = (args?.get("durationMinutes") as? Number)?.toInt() ?: 5
+
                     if (packageName != null) {
                         // User proceeded; revert the optimistic resist increment
                         val prefs = getSharedPreferences("FlutterSharedPreferences", MODE_PRIVATE)
@@ -40,14 +52,19 @@ class MainActivity: FlutterActivity() {
                             prefs.edit().putInt("flutter.cancel_count", currentCount - 1).apply()
                         }
 
-                        AppBlockerService.allowApp(packageName)
+                        val durationMs = durationMinutes.toLong() * 60L * 1000L
+                        AppBlockerService.allowApp(this@MainActivity, packageName, durationMs)
                         
+                        blockedPackageIntent = null
+                        debugInfoIntent = null
+
                         // Launch the target app natively for reliability
                         val launchIntent = packageManager.getLaunchIntentForPackage(packageName)
                         if (launchIntent != null) {
                             launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                             startActivity(launchIntent)
                         }
+                        moveTaskToBack(true)
                         result.success(true)
                     } else {
                         result.error("INVALID_ARG", "Package name is null", null)
