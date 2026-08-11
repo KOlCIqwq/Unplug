@@ -101,7 +101,7 @@ class PromptService {
       }
 
       if (filteredSet.isNotEmpty) {
-        final List<String> combined = [...currentQuotes, ...filteredSet].toSet().toList();
+        final List<String> combined = {...currentQuotes, ...filteredSet}.toList();
         combined.shuffle(_random);
         await prefs.setStringList(_dailyQuotesKey, combined);
         await prefs.setString(_lastFetchDateKey, todayStr);

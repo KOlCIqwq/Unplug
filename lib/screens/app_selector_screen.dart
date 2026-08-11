@@ -41,7 +41,7 @@ class _AppSelectorScreenState extends State<AppSelectorScreen> {
     try {
       if (!kIsWeb && Platform.isAndroid) {
         List<AppInfo> apps = await InstalledApps.getInstalledApps(excludeSystemApps: true, withIcon: true);
-        apps.sort((a, b) => a.name!.toLowerCase().compareTo(b.name!.toLowerCase()));
+        apps.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
         setState(() {
           _apps = apps;
           _isLoading = false;
@@ -94,18 +94,18 @@ class _AppSelectorScreenState extends State<AppSelectorScreen> {
                   itemCount: _apps.length,
                   itemBuilder: (context, index) {
                     final app = _apps[index];
-                    final packageName = app.packageName!;
+                    final packageName = app.packageName;
                     final isBlocked = _blockedAppPackages.contains(packageName);
                     
                     return ListTile(
                       leading: app.icon != null
                           ? Image.memory(app.icon!, width: 40, height: 40)
                           : const Icon(Icons.android),
-                      title: Text(app.name ?? 'Unknown App'),
+                      title: Text(app.name),
                       subtitle: Text(packageName, style: const TextStyle(fontSize: 12, color: Colors.grey)),
                       trailing: Switch(
                         value: isBlocked,
-                        activeColor: Theme.of(context).colorScheme.primary,
+                        activeThumbColor: Theme.of(context).colorScheme.primary,
                         onChanged: (value) => _toggleAppBlock(packageName),
                       ),
                       onTap: () => _toggleAppBlock(packageName),

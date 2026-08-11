@@ -102,145 +102,159 @@ class _InterventionScreenState extends State<InterventionScreen>
             return SingleChildScrollView(
               physics: const BouncingScrollPhysics(),
               child: ConstrainedBox(
-                constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                child: IntrinsicHeight(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        const Spacer(flex: 1),
+                constraints: BoxConstraints(
+                  minHeight: constraints.maxHeight,
+                  minWidth: constraints.maxWidth,
+                ),
+                child: SizedBox(
+                  width: constraints.maxWidth,
+                  child: IntrinsicHeight(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          const Spacer(flex: 1),
 
-                        // Quote Text
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 12.0),
-                          child: Text(
-                            _phrase,
-                            textAlign: TextAlign.center,
-                            maxLines: 4,
-                            overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              color: Colors.white.withOpacity(0.9),
-                              fontWeight: FontWeight.w400,
-                              fontStyle: FontStyle.italic,
-                              height: 1.35,
-                              letterSpacing: 0.2,
+                          // Quote Text
+                          SizedBox(
+                            width: double.infinity,
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 12.0),
+                              child: Text(
+                                _phrase,
+                                textAlign: TextAlign.center,
+                                maxLines: 4,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  color: Colors.white.withValues(alpha: 0.9),
+                                  fontWeight: FontWeight.w400,
+                                  fontStyle: FontStyle.italic,
+                                  height: 1.35,
+                                  letterSpacing: 0.2,
+                                ),
+                              ),
                             ),
                           ),
-                        ),
-                        const SizedBox(height: 24),
+                          const SizedBox(height: 24),
 
-                        // Breathing Circle Animation
-                        SizedBox(
-                          height: 140,
-                          width: 140,
-                          child: Center(
-                            child: AnimatedBuilder(
-                              animation: _scaleAnimation,
-                              builder: (context, child) {
-                                return Transform.scale(
-                                  scale: _scaleAnimation.value,
-                                  child: Container(
-                                    width: 75,
-                                    height: 75,
-                                    decoration: BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
-                                      border: Border.all(
-                                        color: Theme.of(context).colorScheme.primary,
-                                        width: 2,
+                          // Breathing Circle Animation
+                          SizedBox(
+                            height: 140,
+                            width: 140,
+                            child: Center(
+                              child: AnimatedBuilder(
+                                animation: _scaleAnimation,
+                                builder: (context, child) {
+                                  return Transform.scale(
+                                    scale: _scaleAnimation.value,
+                                    child: Container(
+                                      width: 75,
+                                      height: 75,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
+                                        border: Border.all(
+                                          color: Theme.of(context).colorScheme.primary,
+                                          width: 2,
+                                        ),
                                       ),
                                     ),
-                                  ),
-                                );
-                              },
-                            ),
-                          ),
-                        ),
-
-                        const SizedBox(height: 24),
-
-                        // Timer Text
-                        Text(
-                          _remainingSeconds > 0 ? '$_remainingSeconds' : 'Ready',
-                          style: Theme.of(context).textTheme.displayMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                        ),
-
-                        const SizedBox(height: 24),
-
-                        // Action Buttons
-                        if (_remainingSeconds == 0) ...[
-                          Text(
-                            'Set your session limit',
-                            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                              color: Colors.white70,
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          Wrap(
-                            alignment: WrapAlignment.center,
-                            spacing: 8,
-                            runSpacing: 4,
-                            children: [1, 3, 5, 10, 15, 20].map((mins) {
-                              final isSelected = _selectedMinutes == mins;
-                              return ChoiceChip(
-                                label: Text('$mins min${mins > 1 ? 's' : ''}'),
-                                selected: isSelected,
-                                selectedColor: Theme.of(context).colorScheme.primary,
-                                onSelected: (selected) {
-                                  if (selected) {
-                                    setState(() {
-                                      _selectedMinutes = mins;
-                                    });
-                                  }
+                                  );
                                 },
-                              );
-                            }).toList(),
-                          ),
-                          const SizedBox(height: 20),
-                          ElevatedButton(
-                            onPressed: () {
-                              if (_isPopped) return;
-                              _isPopped = true;
-                              _proceeded = true;
-                              Navigator.of(context).pop(_selectedMinutes);
-                            },
-                            style: ElevatedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 32,
-                                vertical: 14,
                               ),
-                              backgroundColor: Theme.of(context).colorScheme.primary,
-                              foregroundColor: Theme.of(context).colorScheme.onPrimary,
-                            ),
-                            child: Text('Continue for $_selectedMinutes min${_selectedMinutes > 1 ? 's' : ''}'),
-                          ),
-                        ] else
-                          OutlinedButton(
-                            onPressed: () {
-                              if (_isPopped) return;
-                              _isPopped = true;
-                              Navigator.of(context).pop(false);
-                            },
-                            style: OutlinedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 48,
-                                vertical: 14,
-                              ),
-                              side: const BorderSide(color: Colors.white54),
-                            ),
-                            child: const Text(
-                              'Cancel',
-                              style: TextStyle(color: Colors.white),
                             ),
                           ),
 
-                        const Spacer(flex: 2),
-                      ],
+                          const SizedBox(height: 24),
+
+                          // Timer Text
+                          Center(
+                            child: Text(
+                              _remainingSeconds > 0 ? '$_remainingSeconds' : 'Ready',
+                              style: Theme.of(context).textTheme.displayMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+
+                          const SizedBox(height: 24),
+
+                          // Action Buttons
+                          if (_remainingSeconds == 0) ...[
+                            Text(
+                              'Set your session limit',
+                              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                color: Colors.white70,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            SizedBox(
+                              width: double.infinity,
+                              child: Wrap(
+                                alignment: WrapAlignment.center,
+                                spacing: 8,
+                                runSpacing: 4,
+                                children: [1, 3, 5, 10, 15, 20].map((mins) {
+                                  final isSelected = _selectedMinutes == mins;
+                                  return ChoiceChip(
+                                    label: Text('$mins min${mins > 1 ? 's' : ''}'),
+                                    selected: isSelected,
+                                    selectedColor: Theme.of(context).colorScheme.primary,
+                                    onSelected: (selected) {
+                                      if (selected) {
+                                        setState(() {
+                                          _selectedMinutes = mins;
+                                        });
+                                      }
+                                    },
+                                  );
+                                }).toList(),
+                              ),
+                            ),
+                            const SizedBox(height: 20),
+                            ElevatedButton(
+                              onPressed: () {
+                                if (_isPopped) return;
+                                _isPopped = true;
+                                _proceeded = true;
+                                Navigator.of(context).pop(_selectedMinutes);
+                              },
+                              style: ElevatedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 32,
+                                  vertical: 14,
+                                ),
+                                backgroundColor: Theme.of(context).colorScheme.primary,
+                                foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                              ),
+                              child: Text('Continue for $_selectedMinutes min${_selectedMinutes > 1 ? 's' : ''}'),
+                            ),
+                          ] else
+                            OutlinedButton(
+                              onPressed: () {
+                                if (_isPopped) return;
+                                _isPopped = true;
+                                Navigator.of(context).pop(false);
+                              },
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 48,
+                                  vertical: 14,
+                                ),
+                                side: const BorderSide(color: Colors.white54),
+                              ),
+                              child: const Text(
+                                'Cancel',
+                                style: TextStyle(color: Colors.white),
+                              ),
+                            ),
+
+                          const Spacer(flex: 2),
+                        ],
+                      ),
                     ),
                   ),
                 ),

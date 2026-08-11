@@ -83,7 +83,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
             ),
             const SizedBox(height: 40),
             Card(
-              color: Theme.of(context).colorScheme.surfaceVariant,
+              color: Theme.of(context).colorScheme.surfaceContainerHighest,
               margin: const EdgeInsets.symmetric(horizontal: 32),
               child: Padding(
                 padding: const EdgeInsets.all(24.0),
@@ -110,8 +110,9 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                 // Refresh wait time before launching in case it was changed in Settings
                 final prefs = await SharedPreferences.getInstance();
                 final currentWaitTime = prefs.getInt('wait_time_seconds') ?? 10;
+                if (!context.mounted) return;
 
-                final bool? proceeded = await Navigator.of(context).push(
+                final dynamic proceeded = await Navigator.of(context).push(
                   MaterialPageRoute(
                     builder: (context) => InterventionScreen(
                       waitTimeSeconds: currentWaitTime,
