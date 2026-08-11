@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:async';
 import 'intervention_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -12,6 +13,9 @@ class DashboardScreen extends StatefulWidget {
 class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingObserver {
   int _cancelCount = 0;
   bool _isLoading = true;
+  int _zenModeEndTime = 0;
+  int _selectedZenMinutes = 15;
+  Timer? _zenTimer;
 
   @override
   void initState() {
@@ -22,6 +26,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
 
   @override
   void dispose() {
+    _zenTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -37,7 +42,19 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     final prefs = await SharedPreferences.getInstance();
     setState(() {
       _cancelCount = prefs.getInt('cancel_count') ?? 0;
+      _zenModeEndTime = prefs.getInt('zen_mode_end_time') ?? 0;
       _isLoading = false;
+    });
+
+    _zenTimer?.cancel();
+    _zenTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_zenModeEndTime > 0 && DateTime.now().millisecondsSinceEpoch > _zenModeEndTime) {
+        setState(() {
+          _zenModeEndTime = 0;
+        });
+      } else if (_zenModeEndTime > 0) {
+        setState(() {}); // trigger rebuild to update time
+      }
     });
   }
 
@@ -48,6 +65,28 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     setState(() {
       _cancelCount = newCount;
     });
+  }
+
+  Future<void> _enterZenSpace(int minutes) async {
+    final prefs = await SharedPreferences.getInstance();
+    final endTime = DateTime.now().millisecondsSinceEpoch + (minutes * 60 * 1000);
+    await prefs.setInt('zen_mode_end_time', endTime);
+    setState(() {
+      _zenModeEndTime = endTime;
+    });
+  }
+
+  Future<void> _exitZenSpace() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('zen_mode_end_time', 0);
+    setState(() {
+      _zenModeEndTime = 0;
+    });
+  }
+
+  String _formatTime(DateTime time) {
+    String twoDigits(int n) => n.toString().padLeft(2, '0');
+    return '${twoDigits(time.hour)}:${twoDigits(time.minute)}';
   }
 
   @override
@@ -65,12 +104,14 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
         elevation: 0,
       ),
       body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.shield_moon, size: 80, color: Colors.teal),
-            const SizedBox(height: 20),
-            Text(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(vertical: 24.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.shield_moon, size: 80, color: Colors.teal),
+              const SizedBox(height: 20),
+              Text(
               '$_cancelCount',
               style: Theme.of(context).textTheme.displayLarge?.copyWith(
                 fontWeight: FontWeight.bold,
@@ -99,13 +140,79 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                 ),
               ),
             ),
-            const SizedBox(height: 60),
-            ElevatedButton.icon(
+            const SizedBox(height: 40),
+            if (_zenModeEndTime > DateTime.now().millisecondsSinceEpoch)
+              Card(
+                color: Theme.of(context).colorScheme.primaryContainer,
+                margin: const EdgeInsets.symmetric(horizontal: 32),
+                child: Padding(
+                  padding: const EdgeInsets.all(24.0),
+                  child: Column(
+                    children: [
+                      const Icon(Icons.self_improvement, size: 48),
+                      const SizedBox(height: 8),
+                      const Text('Zen Space Active', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Ends at ${_formatTime(DateTime.fromMillisecondsSinceEpoch(_zenModeEndTime))}',
+                        style: const TextStyle(fontSize: 16),
+                      ),
+                      const SizedBox(height: 16),
+                      OutlinedButton(
+                        onPressed: _exitZenSpace,
+                        child: const Text('Exit Early'),
+                      ),
+                    ],
+                  ),
+                ),
+              )
+            else
+              Card(
+                color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                margin: const EdgeInsets.symmetric(horizontal: 32),
+                child: Padding(
+                  padding: const EdgeInsets.all(24.0),
+                  child: Column(
+                    children: [
+                      const Icon(Icons.self_improvement, size: 48),
+                      const SizedBox(height: 8),
+                      const Text('Enter Zen Space', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Block all apps except the Zen Whitelist.',
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 16),
+                      Wrap(
+                        spacing: 8,
+                        children: [15, 30, 60, 120].map((mins) {
+                          final isSelected = _selectedZenMinutes == mins;
+                          return ChoiceChip(
+                            label: Text(mins >= 60 ? '${mins ~/ 60}h' : '${mins}m'),
+                            selected: isSelected,
+                            onSelected: (selected) {
+                              if (selected) setState(() => _selectedZenMinutes = mins);
+                            },
+                          );
+                        }).toList(),
+                      ),
+                      const SizedBox(height: 16),
+                      ElevatedButton(
+                        onPressed: () => _enterZenSpace(_selectedZenMinutes),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Theme.of(context).colorScheme.primary,
+                          foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                        ),
+                        child: const Text('Start Zen Space'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            const SizedBox(height: 40),
+            TextButton.icon(
               icon: const Icon(Icons.play_arrow),
               label: const Text('Test Intervention Screen'),
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              ),
               onPressed: () async {
                 // Refresh wait time before launching in case it was changed in Settings
                 final prefs = await SharedPreferences.getInstance();
@@ -131,6 +238,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }

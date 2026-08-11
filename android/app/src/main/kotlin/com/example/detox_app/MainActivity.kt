@@ -10,6 +10,7 @@ class MainActivity: FlutterActivity() {
     private val CHANNEL = "com.example.detox_app/intervention"
     private var blockedPackageIntent: String? = null
     private var debugInfoIntent: String? = null
+    private var isZenBlockIntent: Boolean = false
 
     override fun onCreate(savedInstanceState: android.os.Bundle?) {
         super.onCreate(savedInstanceState)
@@ -28,11 +29,13 @@ class MainActivity: FlutterActivity() {
                 "getPendingIntervention" -> {
                     val map = mapOf(
                         "package" to blockedPackageIntent,
-                        "debug" to debugInfoIntent
+                        "debug" to debugInfoIntent,
+                        "isZenBlock" to isZenBlockIntent
                     )
                     result.success(map)
                     blockedPackageIntent = null 
                     debugInfoIntent = null
+                    isZenBlockIntent = false
                 }
                 "openAccessibilitySettings" -> {
                     val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
@@ -57,6 +60,7 @@ class MainActivity: FlutterActivity() {
                         
                         blockedPackageIntent = null
                         debugInfoIntent = null
+                        isZenBlockIntent = false
 
                         // Launch the target app natively for reliability
                         val launchIntent = packageManager.getLaunchIntentForPackage(packageName)
@@ -96,16 +100,19 @@ class MainActivity: FlutterActivity() {
     private fun handleIntent(intent: Intent) {
         val blockedPackage = intent.getStringExtra("blocked_package")
         val debugInfo = intent.getStringExtra("debug_info")
+        val isZen = intent.getBooleanExtra("is_zen_block", false)
         if (blockedPackage != null) {
             blockedPackageIntent = blockedPackage
             debugInfoIntent = debugInfo
+            isZenBlockIntent = isZen
             
             flutterEngine?.dartExecutor?.binaryMessenger?.let {
-                val map = mapOf("package" to blockedPackage, "debug" to debugInfo)
+                val map = mapOf("package" to blockedPackage, "debug" to debugInfo, "isZenBlock" to isZen)
                 MethodChannel(it, CHANNEL).invokeMethod("triggerIntervention", map)
             }
             intent.removeExtra("blocked_package")
             intent.removeExtra("debug_info")
+            intent.removeExtra("is_zen_block")
         }
     }
 }

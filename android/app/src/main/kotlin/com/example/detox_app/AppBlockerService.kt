@@ -139,13 +139,42 @@ class AppBlockerService : AccessibilityService() {
                 
                 // Read blocked apps from SharedPreferences
                 val prefs = getSharedPreferences("FlutterSharedPreferences", MODE_PRIVATE)
-                val blockedAppsString = prefs.getString("flutter.blocked_apps_string", "")
-                val blockedApps = blockedAppsString?.split(",")?.filter { it.isNotBlank() }?.toSet() ?: emptySet()
                 
-                val targetBlockedPackage = when {
-                    blockedApps.contains(packageName) -> packageName
-                    blockedApps.contains(rootPackage) -> rootPackage
-                    else -> null
+                val zenModeEndTime = prefs.getLong("flutter.zen_mode_end_time", 0L)
+                val isZenModeActive = System.currentTimeMillis() < zenModeEndTime
+
+                var isZenBlock = false
+                var targetBlockedPackage: String? = null
+                
+                if (isZenModeActive) {
+                    val zenWhitelistString = prefs.getString("flutter.zen_whitelisted_apps_string", "")
+                    val zenWhitelist = zenWhitelistString?.split(",")?.filter { it.isNotBlank() }?.toSet() ?: emptySet()
+                    
+                    val isLauncher = launcherPackages?.contains(packageName) == true || run {
+                        val intent = Intent(Intent.ACTION_MAIN).apply { addCategory(Intent.CATEGORY_HOME) }
+                        val resolveInfoList = packageManager.queryIntentActivities(intent, android.content.pm.PackageManager.MATCH_DEFAULT_ONLY)
+                        val launchers = resolveInfoList.map { it.activityInfo.packageName }
+                        launcherPackages = launchers
+                        launchers.contains(packageName)
+                    }
+
+                    val launchIntent = packageManager.getLaunchIntentForPackage(packageName)
+                    if (launchIntent != null && !isLauncher && !zenWhitelist.contains(packageName) && packageName != this.packageName) {
+                        targetBlockedPackage = packageName
+                        isZenBlock = true
+                    } else if (packageManager.getLaunchIntentForPackage(rootPackage) != null && !isLauncher && !zenWhitelist.contains(rootPackage) && rootPackage != this.packageName) {
+                        targetBlockedPackage = rootPackage
+                        isZenBlock = true
+                    }
+                } else {
+                    val blockedAppsString = prefs.getString("flutter.blocked_apps_string", "")
+                    val blockedApps = blockedAppsString?.split(",")?.filter { it.isNotBlank() }?.toSet() ?: emptySet()
+                    
+                    targetBlockedPackage = when {
+                        blockedApps.contains(packageName) -> packageName
+                        blockedApps.contains(rootPackage) -> rootPackage
+                        else -> null
+                    }
                 }
 
                 // If this is the currently allowed app session
@@ -201,6 +230,7 @@ class AppBlockerService : AccessibilityService() {
                 val launchIntent = Intent(this, MainActivity::class.java).apply {
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
                     putExtra("blocked_package", targetBlockedPackage)
+                    putExtra("is_zen_block", isZenBlock)
                 }
                 startActivity(launchIntent)
             }

@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/intervention_screen.dart';
 import 'screens/app_selector_screen.dart';
+import 'screens/zen_apps_screen.dart';
 import 'screens/settings_screen.dart';
 import 'services/prompt_service.dart';
 
@@ -59,9 +60,9 @@ class _MainNavigationState extends State<MainNavigation> {
       if (call.method == "triggerIntervention") {
         final args = call.arguments;
         if (args is Map) {
-          _launchIntervention(args['package'] as String, args['debug'] as String?);
+          _launchIntervention(args['package'] as String, args['debug'] as String?, args['isZenBlock'] as bool? ?? false);
         } else if (args is String) {
-          _launchIntervention(args, null);
+          _launchIntervention(args, null, false);
         }
       }
     });
@@ -69,21 +70,21 @@ class _MainNavigationState extends State<MainNavigation> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       platform.invokeMethod('getPendingIntervention').then((args) {
         if (args != null && args is Map && args['package'] != null) {
-          _launchIntervention(args['package'] as String, args['debug'] as String?);
+          _launchIntervention(args['package'] as String, args['debug'] as String?, args['isZenBlock'] as bool? ?? false);
         } else if (args != null && args is String) {
-          _launchIntervention(args, null);
+          _launchIntervention(args, null, false);
         }
       });
     });
   }
 
-  Future<void> _launchIntervention(String packageName, String? debugInfo) async {
+  Future<void> _launchIntervention(String packageName, String? debugInfo, bool isZenBlock) async {
     if (_isInterventionActive) return;
     _isInterventionActive = true;
 
     try {
       final prefs = await SharedPreferences.getInstance();
-      final waitTime = prefs.getInt('wait_time_seconds') ?? 10;
+      final waitTime = isZenBlock ? 999999 : (prefs.getInt('wait_time_seconds') ?? 10);
       
       await Future.delayed(Duration.zero);
 
@@ -93,6 +94,7 @@ class _MainNavigationState extends State<MainNavigation> {
             waitTimeSeconds: waitTime,
             targetAppName: packageName,
             debugInfo: debugInfo,
+            isZenBlock: isZenBlock,
           ),
         ),
       );
@@ -119,6 +121,7 @@ class _MainNavigationState extends State<MainNavigation> {
   static const List<Widget> _screens = <Widget>[
     DashboardScreen(),
     AppSelectorScreen(),
+    ZenAppsScreen(),
     SettingsScreen(),
   ];
 
@@ -147,6 +150,11 @@ class _MainNavigationState extends State<MainNavigation> {
             icon: Icon(Icons.apps_outlined),
             selectedIcon: Icon(Icons.apps),
             label: 'Blocked Apps',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.self_improvement_outlined),
+            selectedIcon: Icon(Icons.self_improvement),
+            label: 'Zen Apps',
           ),
           NavigationDestination(
             icon: Icon(Icons.settings_outlined),

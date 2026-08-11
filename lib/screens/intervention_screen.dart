@@ -6,12 +6,14 @@ class InterventionScreen extends StatefulWidget {
   final int waitTimeSeconds;
   final String targetAppName;
   final String? debugInfo;
+  final bool isZenBlock;
 
   const InterventionScreen({
     super.key,
     this.waitTimeSeconds = 10,
     this.targetAppName = 'the app',
     this.debugInfo,
+    this.isZenBlock = false,
   });
 
   @override
@@ -73,6 +75,7 @@ class _InterventionScreenState extends State<InterventionScreen>
   }
 
   void _startTimer() {
+    if (widget.isZenBlock) return;
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (_remainingSeconds > 0) {
         setState(() {
@@ -172,7 +175,9 @@ class _InterventionScreenState extends State<InterventionScreen>
                           // Timer Text
                           Center(
                             child: Text(
-                              _remainingSeconds > 0 ? '$_remainingSeconds' : 'Ready',
+                              widget.isZenBlock
+                                  ? 'Zen Space Active'
+                                  : _remainingSeconds > 0 ? '$_remainingSeconds' : 'Ready',
                               style: Theme.of(context).textTheme.displayMedium?.copyWith(
                                 fontWeight: FontWeight.bold,
                                 color: Colors.white,
@@ -183,7 +188,7 @@ class _InterventionScreenState extends State<InterventionScreen>
                           const SizedBox(height: 24),
 
                           // Action Buttons
-                          if (_remainingSeconds == 0) ...[
+                          if (!widget.isZenBlock && _remainingSeconds == 0) ...[
                             Text(
                               'Set your session limit',
                               style: Theme.of(context).textTheme.titleSmall?.copyWith(
