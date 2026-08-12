@@ -60,7 +60,8 @@ class AppBlockerService : AccessibilityService() {
 
         fun showSessionCountdownNotification(context: Context, appName: String, expirationTime: Long) {
             try {
-                val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+                if (notificationManager == null) return
                 
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                     val channel = NotificationChannel(
@@ -106,8 +107,8 @@ class AppBlockerService : AccessibilityService() {
 
         fun dismissSessionNotification(context: Context) {
             try {
-                val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-                notificationManager.cancel(NOTIFICATION_ID)
+                val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+                notificationManager?.cancel(NOTIFICATION_ID)
             } catch (e: Exception) {
                 Log.e("AppBlockerService", "Error dismissing countdown notification", e)
             }
@@ -123,8 +124,8 @@ class AppBlockerService : AccessibilityService() {
                 
                 // Ignore our own app, system UI, and keyboards
                 if (ignoredPackages == null) {
-                    val imm = getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
-                    val imes = imm.inputMethodList.map { it.packageName }.toMutableSet()
+                    val imm = getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as? android.view.inputmethod.InputMethodManager
+                    val imes = imm?.inputMethodList?.map { it.packageName }?.toMutableSet() ?: mutableSetOf()
                     imes.add("com.android.systemui")
                     imes.add("android")
                     imes.add(this.packageName) 
