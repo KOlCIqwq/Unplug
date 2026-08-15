@@ -25,6 +25,49 @@ class AppBlockerService : AccessibilityService() {
         var sessionStartTime: Long = 0L
         private val sessionHandler = android.os.Handler(android.os.Looper.getMainLooper())
         
+        fun getTodayDateKey(): String {
+            val sdf = java.text.SimpleDateFormat("yyyyMMdd", java.util.Locale.US)
+            return sdf.format(java.util.Date())
+        }
+
+        fun getSafeLong(prefs: android.content.SharedPreferences, key: String, defaultVal: Long = 0L): Long {
+            return try {
+                prefs.getLong(key, defaultVal)
+            } catch (e: Exception) {
+                try {
+                    prefs.getInt(key, defaultVal.toInt()).toLong()
+                } catch (e2: Exception) {
+                    defaultVal
+                }
+            }
+        }
+
+        fun getSafeInt(prefs: android.content.SharedPreferences, key: String, defaultVal: Int = 0): Int {
+            return try {
+                prefs.getLong(key, defaultVal.toLong()).toInt()
+            } catch (e: Exception) {
+                try {
+                    prefs.getInt(key, defaultVal)
+                } catch (e2: Exception) {
+                    defaultVal
+                }
+            }
+        }
+
+        fun recordUsage(context: Context, packageName: String?, elapsedMs: Long) {
+            if (packageName == null || elapsedMs <= 0) return
+            try {
+                val prefs = context.getSharedPreferences("FlutterSharedPreferences", MODE_PRIVATE)
+                val dateKey = getTodayDateKey()
+                val key = "flutter.usage_${dateKey}_$packageName"
+                val currentMs = getSafeLong(prefs, key, 0L)
+                prefs.edit().putLong(key, currentMs + elapsedMs).apply()
+                Log.d("AppBlockerService", "Recorded ${elapsedMs / 1000}s usage for $packageName on $dateKey (total: ${(currentMs + elapsedMs) / 1000}s)")
+            } catch (e: Exception) {
+                Log.e("AppBlockerService", "Error recording usage", e)
+            }
+        }
+
         fun allowApp(context: android.content.Context, packageName: String, durationMs: Long) {
             temporarilyAllowedPackage = packageName
             hasEnteredAllowedApp = false
@@ -44,8 +87,12 @@ class AppBlockerService : AccessibilityService() {
             sessionHandler.postDelayed({
                 if (temporarilyAllowedPackage != null) {
                     val expiredPackage = temporarilyAllowedPackage
+                    val elapsedMs = if (sessionStartTime > 0L) System.currentTimeMillis() - sessionStartTime else durationMs
+                    recordUsage(context, expiredPackage, elapsedMs)
+
                     temporarilyAllowedPackage = null
                     sessionExpirationTime = 0L
+                    sessionStartTime = 0L
                     hasEnteredAllowedApp = false
                     dismissSessionNotification(context)
                     
@@ -141,7 +188,7 @@ class AppBlockerService : AccessibilityService() {
                 // Read blocked apps from SharedPreferences
                 val prefs = getSharedPreferences("FlutterSharedPreferences", MODE_PRIVATE)
                 
-                val zenModeEndTime = prefs.getLong("flutter.zen_mode_end_time", 0L)
+                val zenModeEndTime = getSafeLong(prefs, "flutter.zen_mode_end_time", 0L)
                 val isZenModeActive = System.currentTimeMillis() < zenModeEndTime
 
                 var isZenBlock = false
@@ -184,8 +231,13 @@ class AppBlockerService : AccessibilityService() {
 
                     // Check if time expired
                     if (sessionExpirationTime != 0L && System.currentTimeMillis() >= sessionExpirationTime) {
+                        val expiredPackage = temporarilyAllowedPackage
+                        val elapsedMs = if (sessionStartTime > 0L) System.currentTimeMillis() - sessionStartTime else 0L
+                        recordUsage(this, expiredPackage, elapsedMs)
+
                         temporarilyAllowedPackage = null
                         sessionExpirationTime = 0L
+                        sessionStartTime = 0L
                         hasEnteredAllowedApp = false
                         sessionHandler.removeCallbacksAndMessages(null)
                         dismissSessionNotification(this)
@@ -208,8 +260,13 @@ class AppBlockerService : AccessibilityService() {
                     val isOtherApp = packageManager.getLaunchIntentForPackage(packageName) != null && packageName != this.packageName
 
                     if (isLauncher || isOtherApp) {
+                        val leavingPackage = temporarilyAllowedPackage
+                        val elapsedMs = if (sessionStartTime > 0L) System.currentTimeMillis() - sessionStartTime else 0L
+                        recordUsage(this, leavingPackage, elapsedMs)
+
                         temporarilyAllowedPackage = null
                         sessionExpirationTime = 0L
+                        sessionStartTime = 0L
                         hasEnteredAllowedApp = false
                         sessionHandler.removeCallbacksAndMessages(null)
                         dismissSessionNotification(this)
@@ -225,13 +282,22 @@ class AppBlockerService : AccessibilityService() {
                 Log.d(TAG, "Blocking app: $targetBlockedPackage")
                 
                 dismissSessionNotification(this)
-                val currentCount = prefs.getInt("flutter.cancel_count", 0)
-                prefs.edit().putInt("flutter.cancel_count", currentCount + 1).apply()
+                val currentCount = getSafeInt(prefs, "flutter.cancel_count", 0)
+                prefs.edit().putLong("flutter.cancel_count", (currentCount + 1).toLong()).apply()
+
+                val dateKey = getTodayDateKey()
+                val usedMs = getSafeLong(prefs, "flutter.usage_${dateKey}_$targetBlockedPackage", 0L)
+                val limitMins = getSafeInt(prefs, "flutter.limit_$targetBlockedPackage", 0)
+                val usedMins = (usedMs / (60 * 1000)).toInt()
+                val isLimitReached = (limitMins > 0) && (usedMins >= limitMins)
 
                 val launchIntent = Intent(this, MainActivity::class.java).apply {
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
                     putExtra("blocked_package", targetBlockedPackage)
                     putExtra("is_zen_block", isZenBlock)
+                    putExtra("is_limit_block", isLimitReached)
+                    putExtra("used_minutes", usedMins)
+                    putExtra("limit_minutes", limitMins)
                 }
                 startActivity(launchIntent)
             }

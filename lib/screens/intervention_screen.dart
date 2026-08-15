@@ -7,6 +7,9 @@ class InterventionScreen extends StatefulWidget {
   final String targetAppName;
   final String? debugInfo;
   final bool isZenBlock;
+  final bool isLimitBlock;
+  final int usedMinutes;
+  final int limitMinutes;
 
   const InterventionScreen({
     super.key,
@@ -14,6 +17,9 @@ class InterventionScreen extends StatefulWidget {
     this.targetAppName = 'the app',
     this.debugInfo,
     this.isZenBlock = false,
+    this.isLimitBlock = false,
+    this.usedMinutes = 0,
+    this.limitMinutes = 0,
   });
 
   @override
@@ -75,7 +81,7 @@ class _InterventionScreenState extends State<InterventionScreen>
   }
 
   void _startTimer() {
-    if (widget.isZenBlock) return;
+    if (widget.isZenBlock || widget.isLimitBlock) return;
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (_remainingSeconds > 0) {
         setState(() {
@@ -172,23 +178,51 @@ class _InterventionScreenState extends State<InterventionScreen>
 
                           const SizedBox(height: 24),
 
-                          // Timer Text
+                          // Timer / Status Text
                           Center(
                             child: Text(
-                              widget.isZenBlock
-                                  ? 'Zen Space Active'
-                                  : _remainingSeconds > 0 ? '$_remainingSeconds' : 'Ready',
-                              style: Theme.of(context).textTheme.displayMedium?.copyWith(
+                              widget.isLimitBlock
+                                  ? 'Daily Limit Reached'
+                                  : widget.isZenBlock
+                                      ? 'Zen Space Active'
+                                      : _remainingSeconds > 0 ? '$_remainingSeconds' : 'Ready',
+                              textAlign: TextAlign.center,
+                              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                                 fontWeight: FontWeight.bold,
                                 color: Colors.white,
                               ),
                             ),
                           ),
 
+                          if (widget.isLimitBlock) ...[
+                            const SizedBox(height: 8),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                              child: Text(
+                                'You have reached your daily limit of ${widget.limitMinutes}m for ${widget.targetAppName} (Used: ${widget.usedMinutes}m today).',
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(color: Colors.white70, fontSize: 14),
+                              ),
+                            ),
+                          ] else if (!widget.isZenBlock && widget.limitMinutes > 0) ...[
+                            const SizedBox(height: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: Colors.white10,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                'Daily usage: ${widget.usedMinutes}m / ${widget.limitMinutes}m',
+                                style: const TextStyle(color: Colors.white70, fontSize: 12),
+                              ),
+                            ),
+                          ],
+
                           const SizedBox(height: 24),
 
                           // Action Buttons
-                          if (!widget.isZenBlock && _remainingSeconds == 0) ...[
+                          if (!widget.isZenBlock && !widget.isLimitBlock && _remainingSeconds == 0) ...[
                             Text(
                               'Set your session limit',
                               style: Theme.of(context).textTheme.titleSmall?.copyWith(
@@ -251,9 +285,9 @@ class _InterventionScreenState extends State<InterventionScreen>
                                 ),
                                 side: const BorderSide(color: Colors.white54),
                               ),
-                              child: const Text(
-                                'Cancel',
-                                style: TextStyle(color: Colors.white),
+                              child: Text(
+                                widget.isLimitBlock ? 'Close' : 'Cancel',
+                                style: const TextStyle(color: Colors.white),
                               ),
                             ),
 

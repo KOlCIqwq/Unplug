@@ -60,9 +60,16 @@ class _MainNavigationState extends State<MainNavigation> {
       if (call.method == "triggerIntervention") {
         final args = call.arguments;
         if (args is Map) {
-          _launchIntervention(args['package'] as String, args['debug'] as String?, args['isZenBlock'] as bool? ?? false);
+          _launchIntervention(
+            args['package'] as String,
+            args['debug'] as String?,
+            args['isZenBlock'] as bool? ?? false,
+            args['isLimitBlock'] as bool? ?? false,
+            args['usedMinutes'] as int? ?? 0,
+            args['limitMinutes'] as int? ?? 0,
+          );
         } else if (args is String) {
-          _launchIntervention(args, null, false);
+          _launchIntervention(args, null, false, false, 0, 0);
         }
       }
     });
@@ -70,21 +77,35 @@ class _MainNavigationState extends State<MainNavigation> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       platform.invokeMethod('getPendingIntervention').then((args) {
         if (args != null && args is Map && args['package'] != null) {
-          _launchIntervention(args['package'] as String, args['debug'] as String?, args['isZenBlock'] as bool? ?? false);
+          _launchIntervention(
+            args['package'] as String,
+            args['debug'] as String?,
+            args['isZenBlock'] as bool? ?? false,
+            args['isLimitBlock'] as bool? ?? false,
+            args['usedMinutes'] as int? ?? 0,
+            args['limitMinutes'] as int? ?? 0,
+          );
         } else if (args != null && args is String) {
-          _launchIntervention(args, null, false);
+          _launchIntervention(args, null, false, false, 0, 0);
         }
       });
     });
   }
 
-  Future<void> _launchIntervention(String packageName, String? debugInfo, bool isZenBlock) async {
+  Future<void> _launchIntervention(
+    String packageName,
+    String? debugInfo,
+    bool isZenBlock,
+    bool isLimitBlock,
+    int usedMinutes,
+    int limitMinutes,
+  ) async {
     if (_isInterventionActive) return;
     _isInterventionActive = true;
 
     try {
       final prefs = await SharedPreferences.getInstance();
-      final waitTime = isZenBlock ? 999999 : (prefs.getInt('wait_time_seconds') ?? 10);
+      final waitTime = (isZenBlock || isLimitBlock) ? 999999 : (prefs.getInt('wait_time_seconds') ?? 10);
       
       await Future.delayed(Duration.zero);
 
@@ -95,6 +116,9 @@ class _MainNavigationState extends State<MainNavigation> {
             targetAppName: packageName,
             debugInfo: debugInfo,
             isZenBlock: isZenBlock,
+            isLimitBlock: isLimitBlock,
+            usedMinutes: usedMinutes,
+            limitMinutes: limitMinutes,
           ),
         ),
       );

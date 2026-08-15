@@ -11,6 +11,9 @@ class MainActivity: FlutterActivity() {
     private var blockedPackageIntent: String? = null
     private var debugInfoIntent: String? = null
     private var isZenBlockIntent: Boolean = false
+    private var isLimitBlockIntent: Boolean = false
+    private var usedMinutesIntent: Int = 0
+    private var limitMinutesIntent: Int = 0
 
     override fun onCreate(savedInstanceState: android.os.Bundle?) {
         super.onCreate(savedInstanceState)
@@ -30,12 +33,18 @@ class MainActivity: FlutterActivity() {
                     val map = mapOf(
                         "package" to blockedPackageIntent,
                         "debug" to debugInfoIntent,
-                        "isZenBlock" to isZenBlockIntent
+                        "isZenBlock" to isZenBlockIntent,
+                        "isLimitBlock" to isLimitBlockIntent,
+                        "usedMinutes" to usedMinutesIntent,
+                        "limitMinutes" to limitMinutesIntent
                     )
                     result.success(map)
                     blockedPackageIntent = null 
                     debugInfoIntent = null
                     isZenBlockIntent = false
+                    isLimitBlockIntent = false
+                    usedMinutesIntent = 0
+                    limitMinutesIntent = 0
                 }
                 "openAccessibilitySettings" -> {
                     val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
@@ -50,9 +59,9 @@ class MainActivity: FlutterActivity() {
                     if (packageName != null) {
                         // User proceeded; revert the optimistic resist increment
                         val prefs = getSharedPreferences("FlutterSharedPreferences", MODE_PRIVATE)
-                        val currentCount = prefs.getInt("flutter.cancel_count", 0)
+                        val currentCount = AppBlockerService.getSafeInt(prefs, "flutter.cancel_count", 0)
                         if (currentCount > 0) {
-                            prefs.edit().putInt("flutter.cancel_count", currentCount - 1).apply()
+                            prefs.edit().putLong("flutter.cancel_count", (currentCount - 1).toLong()).apply()
                         }
 
                         val durationMs = durationMinutes.toLong() * 60L * 1000L
@@ -101,18 +110,35 @@ class MainActivity: FlutterActivity() {
         val blockedPackage = intent.getStringExtra("blocked_package")
         val debugInfo = intent.getStringExtra("debug_info")
         val isZen = intent.getBooleanExtra("is_zen_block", false)
+        val isLimit = intent.getBooleanExtra("is_limit_block", false)
+        val usedMins = intent.getIntExtra("used_minutes", 0)
+        val limitMins = intent.getIntExtra("limit_minutes", 0)
+
         if (blockedPackage != null) {
             blockedPackageIntent = blockedPackage
             debugInfoIntent = debugInfo
             isZenBlockIntent = isZen
+            isLimitBlockIntent = isLimit
+            usedMinutesIntent = usedMins
+            limitMinutesIntent = limitMins
             
             flutterEngine?.dartExecutor?.binaryMessenger?.let {
-                val map = mapOf("package" to blockedPackage, "debug" to debugInfo, "isZenBlock" to isZen)
+                val map = mapOf(
+                    "package" to blockedPackage,
+                    "debug" to debugInfo,
+                    "isZenBlock" to isZen,
+                    "isLimitBlock" to isLimit,
+                    "usedMinutes" to usedMins,
+                    "limitMinutes" to limitMins
+                )
                 MethodChannel(it, CHANNEL).invokeMethod("triggerIntervention", map)
             }
             intent.removeExtra("blocked_package")
             intent.removeExtra("debug_info")
             intent.removeExtra("is_zen_block")
+            intent.removeExtra("is_limit_block")
+            intent.removeExtra("used_minutes")
+            intent.removeExtra("limit_minutes")
         }
     }
 }

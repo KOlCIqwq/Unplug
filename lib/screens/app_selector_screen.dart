@@ -16,19 +16,48 @@ class _AppSelectorScreenState extends State<AppSelectorScreen> {
   bool _isLoading = true;
   List<AppInfo> _apps = [];
   Set<String> _blockedAppPackages = {};
+  Map<String, int> _appLimits = {};
+  Map<String, int> _appUsageToday = {};
 
   @override
   void initState() {
     super.initState();
-    _loadBlockedApps();
-    _loadApps();
+    _loadData();
+  }
+
+  String _getTodayDateKey() {
+    final now = DateTime.now();
+    final y = now.year.toString().padLeft(4, '0');
+    final m = now.month.toString().padLeft(2, '0');
+    final d = now.day.toString().padLeft(2, '0');
+    return '$y$m$d';
+  }
+
+  Future<void> _loadData() async {
+    await _loadBlockedApps();
+    await _loadApps();
   }
 
   Future<void> _loadBlockedApps() async {
     final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      _blockedAppPackages = (prefs.getStringList('blocked_apps') ?? []).toSet();
-    });
+    final blocked = (prefs.getStringList('blocked_apps') ?? []).toSet();
+    final dateKey = _getTodayDateKey();
+
+    final Map<String, int> limits = {};
+    final Map<String, int> usage = {};
+    for (final pkg in blocked) {
+      limits[pkg] = prefs.getInt('limit_$pkg') ?? 0;
+      final usedMs = prefs.getInt('usage_${dateKey}_$pkg') ?? 0;
+      usage[pkg] = (usedMs / (60 * 1000)).toInt();
+    }
+
+    if (mounted) {
+      setState(() {
+        _blockedAppPackages = blocked;
+        _appLimits = limits;
+        _appUsageToday = usage;
+      });
+    }
   }
 
   Future<void> _saveBlockedApps() async {
@@ -42,20 +71,25 @@ class _AppSelectorScreenState extends State<AppSelectorScreen> {
       if (!kIsWeb && Platform.isAndroid) {
         List<AppInfo> apps = await InstalledApps.getInstalledApps(excludeSystemApps: true, withIcon: true);
         apps.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
-        setState(() {
-          _apps = apps;
-          _isLoading = false;
-        });
+        if (mounted) {
+          setState(() {
+            _apps = apps;
+            _isLoading = false;
+          });
+        }
       } else {
-        // Mock data for testing on non-Android platforms
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
+      }
+    } catch (e) {
+      if (mounted) {
         setState(() {
           _isLoading = false;
         });
       }
-    } catch (e) {
-      setState(() {
-        _isLoading = false;
-      });
     }
   }
 
@@ -68,6 +102,122 @@ class _AppSelectorScreenState extends State<AppSelectorScreen> {
       }
     });
     _saveBlockedApps();
+  }
+
+  Future<void> _setAppDailyLimit(String packageName, String appName, int currentLimit) async {
+    int selectedLimit = currentLimit;
+    final presets = [0, 15, 30, 45, 60, 90, 120];
+
+    final result = await showModalBottomSheet<int>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                top: 24,
+                left: 24,
+                right: 24,
+                bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.timer_outlined, color: Colors.teal),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'Daily Limit: $appName',
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'When this limit is reached, opening the app will be completely blocked for the rest of today.',
+                    style: TextStyle(color: Colors.white70, fontSize: 13),
+                  ),
+                  const SizedBox(height: 20),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: presets.map((mins) {
+                      final isSelected = selectedLimit == mins;
+                      final label = mins == 0
+                          ? 'No Limit (∞)'
+                          : mins >= 60
+                              ? '${mins ~/ 60}h${mins % 60 > 0 ? ' ${mins % 60}m' : ''}'
+                              : '${mins}m';
+                      return ChoiceChip(
+                        label: Text(label),
+                        selected: isSelected,
+                        selectedColor: Theme.of(context).colorScheme.primary,
+                        onSelected: (selected) {
+                          if (selected) {
+                            setSheetState(() {
+                              selectedLimit = mins;
+                            });
+                          }
+                        },
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 24),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        child: const Text('Cancel'),
+                      ),
+                      const SizedBox(width: 8),
+                      ElevatedButton(
+                        onPressed: () => Navigator.of(context).pop(selectedLimit),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Theme.of(context).colorScheme.primary,
+                          foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                        ),
+                        child: const Text('Save Limit'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    if (result != null) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt('limit_$packageName', result);
+      setState(() {
+        _appLimits[packageName] = result;
+      });
+    }
+  }
+
+  String _formatMinutes(int minutes) {
+    if (minutes <= 0) return '0m';
+    if (minutes >= 60) {
+      final h = minutes ~/ 60;
+      final m = minutes % 60;
+      return m > 0 ? '${h}h ${m}m' : '${h}h';
+    }
+    return '${minutes}m';
   }
 
   @override
@@ -96,19 +246,63 @@ class _AppSelectorScreenState extends State<AppSelectorScreen> {
                     final app = _apps[index];
                     final packageName = app.packageName;
                     final isBlocked = _blockedAppPackages.contains(packageName);
-                    
+                    final limit = _appLimits[packageName] ?? 0;
+                    final used = _appUsageToday[packageName] ?? 0;
+                    final isOver = limit > 0 && used >= limit;
+
                     return ListTile(
                       leading: app.icon != null
                           ? Image.memory(app.icon!, width: 40, height: 40)
                           : const Icon(Icons.android),
                       title: Text(app.name),
-                      subtitle: Text(packageName, style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                      trailing: Switch(
-                        value: isBlocked,
-                        activeThumbColor: Theme.of(context).colorScheme.primary,
-                        onChanged: (value) => _toggleAppBlock(packageName),
+                      subtitle: isBlocked
+                          ? Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const SizedBox(height: 2),
+                                Text(
+                                  limit > 0
+                                      ? 'Daily limit: ${_formatMinutes(limit)} • Used: ${_formatMinutes(used)} today'
+                                      : 'No daily limit • Used: ${_formatMinutes(used)} today',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: isOver ? Colors.redAccent : Colors.grey[400],
+                                    fontWeight: isOver ? FontWeight.bold : FontWeight.normal,
+                                  ),
+                                ),
+                                if (isOver) ...[
+                                  const SizedBox(height: 2),
+                                  const Text(
+                                    '🔒 Limit reached - Hard blocked',
+                                    style: TextStyle(fontSize: 11, color: Colors.redAccent),
+                                  ),
+                                ],
+                              ],
+                            )
+                          : Text(packageName, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (isBlocked)
+                            IconButton(
+                              icon: Icon(
+                                limit > 0 ? Icons.timer : Icons.timer_outlined,
+                                color: limit > 0 ? Colors.teal : Colors.grey,
+                                size: 22,
+                              ),
+                              tooltip: 'Set Daily Limit',
+                              onPressed: () => _setAppDailyLimit(packageName, app.name, limit),
+                            ),
+                          Switch(
+                            value: isBlocked,
+                            activeThumbColor: Theme.of(context).colorScheme.primary,
+                            onChanged: (value) => _toggleAppBlock(packageName),
+                          ),
+                        ],
                       ),
-                      onTap: () => _toggleAppBlock(packageName),
+                      onTap: isBlocked
+                          ? () => _setAppDailyLimit(packageName, app.name, limit)
+                          : () => _toggleAppBlock(packageName),
                     );
                   },
                 ),
