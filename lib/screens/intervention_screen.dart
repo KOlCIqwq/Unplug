@@ -42,6 +42,11 @@ class _InterventionScreenState extends State<InterventionScreen>
     super.initState();
     _remainingSeconds = widget.waitTimeSeconds;
 
+    final available = _getAvailableSessionMinutes();
+    if (!available.contains(_selectedMinutes)) {
+      _selectedMinutes = available.contains(5) ? 5 : available.last;
+    }
+
     // Breathing animation (4 seconds inhale, 4 seconds exhale)
     _animationController = AnimationController(
       vsync: this,
@@ -58,6 +63,24 @@ class _InterventionScreenState extends State<InterventionScreen>
     _startTimer();
     _loadDailyQuote();
     WidgetsBinding.instance.addObserver(this);
+  }
+
+  List<int> _getAvailableSessionMinutes() {
+    final defaultPresets = [1, 3, 5, 10, 15, 20];
+    if (widget.limitMinutes <= 0) {
+      return defaultPresets;
+    }
+    final remaining = widget.limitMinutes - widget.usedMinutes;
+    if (remaining <= 0) {
+      return [1];
+    }
+
+    final options = defaultPresets.where((m) => m <= remaining).toList();
+    if (!options.contains(remaining) && remaining > 0) {
+      options.add(remaining);
+      options.sort();
+    }
+    return options.isEmpty ? [remaining] : options;
   }
 
   void _loadDailyQuote() {
@@ -224,7 +247,9 @@ class _InterventionScreenState extends State<InterventionScreen>
                           // Action Buttons
                           if (!widget.isZenBlock && !widget.isLimitBlock && _remainingSeconds == 0) ...[
                             Text(
-                              'Set your session limit',
+                              widget.limitMinutes > 0
+                                  ? 'Set your session limit (${widget.limitMinutes - widget.usedMinutes}m left today)'
+                                  : 'Set your session limit',
                               style: Theme.of(context).textTheme.titleSmall?.copyWith(
                                 color: Colors.white70,
                               ),
@@ -236,7 +261,7 @@ class _InterventionScreenState extends State<InterventionScreen>
                                 alignment: WrapAlignment.center,
                                 spacing: 8,
                                 runSpacing: 4,
-                                children: [1, 3, 5, 10, 15, 20].map((mins) {
+                                children: _getAvailableSessionMinutes().map((mins) {
                                   final isSelected = _selectedMinutes == mins;
                                   return ChoiceChip(
                                     label: Text('$mins min${mins > 1 ? 's' : ''}'),

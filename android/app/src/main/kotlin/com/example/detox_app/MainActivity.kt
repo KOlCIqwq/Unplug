@@ -64,7 +64,20 @@ class MainActivity: FlutterActivity() {
                             prefs.edit().putLong("flutter.cancel_count", (currentCount - 1).toLong()).apply()
                         }
 
-                        val durationMs = durationMinutes.toLong() * 60L * 1000L
+                        var effectiveDurationMinutes = durationMinutes
+                        val limitMins = AppBlockerService.getSafeInt(prefs, "flutter.limit_$packageName", 0)
+                        val dateKey = AppBlockerService.getTodayDateKey()
+                        val usedMs = AppBlockerService.getSafeLong(prefs, "flutter.usage_${dateKey}_$packageName", 0L)
+                        val usedMins = (usedMs / (60 * 1000)).toInt()
+
+                        if (limitMins > 0) {
+                            val remainingMins = limitMins - usedMins
+                            if (remainingMins in 1 until effectiveDurationMinutes) {
+                                effectiveDurationMinutes = remainingMins
+                            }
+                        }
+
+                        val durationMs = effectiveDurationMinutes.toLong() * 60L * 1000L
                         AppBlockerService.allowApp(this@MainActivity, packageName, durationMs)
                         
                         blockedPackageIntent = null
