@@ -691,8 +691,9 @@ class _DashboardScreenState extends State<DashboardScreen>
                                   : colorScheme.onSurface,
                             ),
                             onSelected: (selected) {
-                              if (selected)
+                              if (selected) {
                                 setState(() => _selectedZenMinutes = mins);
+                              }
                             },
                           );
                         }).toList(),
@@ -717,7 +718,7 @@ class _DashboardScreenState extends State<DashboardScreen>
             const SizedBox(height: 16),
 
             // Testing buttons
-            /* Row(
+            Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 TextButton.icon(
@@ -765,7 +766,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                   },
                 ),
               ],
-            ), */
+            ),
           ],
         ),
       ),
