@@ -14,7 +14,8 @@ class DashboardScreen extends StatefulWidget {
   State<DashboardScreen> createState() => _DashboardScreenState();
 }
 
-class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingObserver {
+class _DashboardScreenState extends State<DashboardScreen>
+    with WidgetsBindingObserver {
   int _cancelCount = 0;
   bool _isLoading = true;
   int _zenModeEndTime = 0;
@@ -62,7 +63,10 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
   Future<void> _loadInstalledApps() async {
     try {
       if (!kIsWeb && Platform.isAndroid) {
-        final apps = await InstalledApps.getInstalledApps(excludeSystemApps: true, withIcon: true);
+        final apps = await InstalledApps.getInstalledApps(
+          excludeSystemApps: true,
+          withIcon: true,
+        );
         final Map<String, AppInfo> map = {};
         for (final app in apps) {
           map[app.packageName] = app;
@@ -91,11 +95,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
       totalMins += usedMins;
 
       if (limitMins > 0 || usedMins > 0) {
-        usageList.add({
-          'package': pkg,
-          'limit': limitMins,
-          'used': usedMins,
-        });
+        usageList.add({'package': pkg, 'limit': limitMins, 'used': usedMins});
       }
     }
 
@@ -114,7 +114,8 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
 
     _zenTimer?.cancel();
     _zenTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (_zenModeEndTime > 0 && DateTime.now().millisecondsSinceEpoch > _zenModeEndTime) {
+      if (_zenModeEndTime > 0 &&
+          DateTime.now().millisecondsSinceEpoch > _zenModeEndTime) {
         if (mounted) {
           setState(() {
             _zenModeEndTime = 0;
@@ -141,7 +142,8 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
 
   Future<void> _enterZenSpace(int minutes) async {
     final prefs = await SharedPreferences.getInstance();
-    final endTime = DateTime.now().millisecondsSinceEpoch + (minutes * 60 * 1000);
+    final endTime =
+        DateTime.now().millisecondsSinceEpoch + (minutes * 60 * 1000);
     await prefs.setInt('zen_mode_end_time', endTime);
     if (mounted) {
       setState(() {
@@ -194,18 +196,37 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
+    final colorScheme = Theme.of(context).colorScheme;
     final int estimatedMinutesSaved = _cancelCount * 5;
-    final mostUsedApp = _appUsageList.isNotEmpty && (_appUsageList.first['used'] as int) > 0
+    final mostUsedApp =
+        _appUsageList.isNotEmpty && (_appUsageList.first['used'] as int) > 0
         ? _appUsageList.first
         : null;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Statistics & Overview'),
+        title: Row(
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: Image.asset(
+                'assets/logo.png',
+                width: 30,
+                height: 30,
+                fit: BoxFit.contain,
+              ),
+            ),
+            const SizedBox(width: 10),
+            const Text(
+              'Unplug',
+              style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 0.5),
+            ),
+          ],
+        ),
         elevation: 0,
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
+        padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 12.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -214,9 +235,11 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
               children: [
                 Expanded(
                   child: Card(
-                    color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                    color: colorScheme.surfaceContainerHighest,
                     elevation: 0,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
                     child: Padding(
                       padding: const EdgeInsets.all(16.0),
                       child: Column(
@@ -224,26 +247,37 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                         children: [
                           Row(
                             children: [
-                              const Icon(Icons.shield_moon, size: 20, color: Colors.teal),
+                              Icon(
+                                Icons.shield_moon_rounded,
+                                size: 20,
+                                color: colorScheme.primary,
+                              ),
                               const SizedBox(width: 8),
                               Text(
                                 'Resisted',
-                                style: TextStyle(color: Colors.grey[400], fontSize: 13),
+                                style: TextStyle(
+                                  color: colorScheme.onSurfaceVariant,
+                                  fontSize: 13,
+                                ),
                               ),
                             ],
                           ),
                           const SizedBox(height: 10),
                           Text(
                             '$_cancelCount times',
-                            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: Colors.tealAccent,
-                            ),
+                            style: Theme.of(context).textTheme.titleLarge
+                                ?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: colorScheme.primary,
+                                ),
                           ),
                           const SizedBox(height: 4),
                           Text(
                             '~$estimatedMinutesSaved mins saved',
-                            style: const TextStyle(fontSize: 12, color: Colors.white60),
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: colorScheme.onSurfaceVariant,
+                            ),
                           ),
                         ],
                       ),
@@ -253,9 +287,11 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                 const SizedBox(width: 12),
                 Expanded(
                   child: Card(
-                    color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                    color: colorScheme.surfaceContainerHighest,
                     elevation: 0,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
                     child: Padding(
                       padding: const EdgeInsets.all(16.0),
                       child: Column(
@@ -263,26 +299,37 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                         children: [
                           Row(
                             children: [
-                              const Icon(Icons.timer_outlined, size: 20, color: Colors.amberAccent),
+                              const Icon(
+                                Icons.timer_outlined,
+                                size: 20,
+                                color: Color(0xFFFA8C42),
+                              ),
                               const SizedBox(width: 8),
                               Text(
                                 'Screen Time',
-                                style: TextStyle(color: Colors.grey[400], fontSize: 13),
+                                style: TextStyle(
+                                  color: colorScheme.onSurfaceVariant,
+                                  fontSize: 13,
+                                ),
                               ),
                             ],
                           ),
                           const SizedBox(height: 10),
                           Text(
                             _formatMinutes(_totalUsedMinutes),
-                            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: Colors.amberAccent,
-                            ),
+                            style: Theme.of(context).textTheme.titleLarge
+                                ?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: const Color(0xFFFA8C42),
+                                ),
                           ),
                           const SizedBox(height: 4),
                           Text(
                             'Tracked today',
-                            style: const TextStyle(fontSize: 12, color: Colors.white60),
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: colorScheme.onSurfaceVariant,
+                            ),
                           ),
                         ],
                       ),
@@ -297,11 +344,13 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
             // Most Used App Highlight
             if (mostUsedApp != null) ...[
               Card(
-                color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.6),
+                color: colorScheme.primaryContainer.withValues(alpha: 0.6),
                 elevation: 0,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
-                  side: BorderSide(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3)),
+                  side: BorderSide(
+                    color: colorScheme.primary.withValues(alpha: 0.3),
+                  ),
                 ),
                 child: Padding(
                   padding: const EdgeInsets.all(18.0),
@@ -311,9 +360,13 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.2),
+                          color: colorScheme.primary.withValues(alpha: 0.2),
                         ),
-                        child: const Icon(Icons.star_rounded, color: Colors.amberAccent, size: 28),
+                        child: Icon(
+                          Icons.star_rounded,
+                          color: colorScheme.primary,
+                          size: 28,
+                        ),
                       ),
                       const SizedBox(width: 16),
                       Expanded(
@@ -326,7 +379,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                                 fontSize: 11,
                                 fontWeight: FontWeight.bold,
                                 letterSpacing: 1.1,
-                                color: Theme.of(context).colorScheme.primary,
+                                color: colorScheme.primary,
                               ),
                             ),
                             const SizedBox(height: 4),
@@ -341,23 +394,37 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                             Text(
                               '${_formatMinutes(mostUsedApp['used'] as int)} spent today'
                               '${(mostUsedApp['limit'] as int) > 0 ? ' (Limit: ${_formatMinutes(mostUsedApp['limit'] as int)})' : ''}',
-                              style: const TextStyle(fontSize: 12, color: Colors.white70),
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: colorScheme.onSurfaceVariant,
+                              ),
                             ),
                           ],
                         ),
                       ),
                       if ((mostUsedApp['limit'] as int) > 0 &&
-                          (mostUsedApp['used'] as int) >= (mostUsedApp['limit'] as int))
+                          (mostUsedApp['used'] as int) >=
+                              (mostUsedApp['limit'] as int))
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
                           decoration: BoxDecoration(
                             color: Colors.redAccent.withValues(alpha: 0.2),
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.redAccent, width: 1),
+                            border: Border.all(
+                              color: Colors.redAccent,
+                              width: 1,
+                            ),
                           ),
                           child: const Text(
                             'LOCKED',
-                            style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.redAccent),
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.redAccent,
+                            ),
                           ),
                         ),
                     ],
@@ -369,9 +436,11 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
 
             // App Usage Leaderboard & Ranking Card
             Card(
-              color: Theme.of(context).colorScheme.surfaceContainerHighest,
+              color: colorScheme.surfaceContainerHighest,
               elevation: 0,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
               child: Padding(
                 padding: const EdgeInsets.all(20.0),
                 child: Column(
@@ -382,31 +451,40 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                       children: [
                         Row(
                           children: [
-                            const Icon(Icons.leaderboard_rounded, size: 20, color: Colors.teal),
+                            Icon(
+                              Icons.leaderboard_rounded,
+                              size: 20,
+                              color: colorScheme.primary,
+                            ),
                             const SizedBox(width: 8),
                             Text(
                               'App Usage Breakdown',
-                              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.bold,
-                              ),
+                              style: Theme.of(context).textTheme.titleMedium
+                                  ?.copyWith(fontWeight: FontWeight.bold),
                             ),
                           ],
                         ),
                         Text(
                           '${_appUsageList.length} tracked',
-                          style: TextStyle(fontSize: 12, color: Colors.grey[400]),
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: colorScheme.onSurfaceVariant,
+                          ),
                         ),
                       ],
                     ),
                     const SizedBox(height: 16),
                     if (_appUsageList.isEmpty)
-                      const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 24.0),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 24.0),
                         child: Center(
                           child: Text(
                             'No blocked apps configured yet.\nSelect apps in the "Blocked Apps" tab to track usage.',
                             textAlign: TextAlign.center,
-                            style: TextStyle(color: Colors.white54, fontSize: 13),
+                            style: TextStyle(
+                              color: colorScheme.onSurfaceVariant,
+                              fontSize: 13,
+                            ),
                           ),
                         ),
                       )
@@ -421,12 +499,13 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                         final bool isOver = hasLimit && used >= limit;
 
                         // Progress percentage relative to limit or max used app
-                        final int maxUsed = (_appUsageList.first['used'] as int);
+                        final int maxUsed =
+                            (_appUsageList.first['used'] as int);
                         final double progress = hasLimit
                             ? (used / limit).clamp(0.0, 1.0)
                             : maxUsed > 0
-                                ? (used / maxUsed).clamp(0.0, 1.0)
-                                : 0.0;
+                            ? (used / maxUsed).clamp(0.0, 1.0)
+                            : 0.0;
 
                         return Padding(
                           padding: const EdgeInsets.only(bottom: 16.0),
@@ -443,12 +522,12 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                                     decoration: BoxDecoration(
                                       shape: BoxShape.circle,
                                       color: index == 0
-                                          ? Colors.amber.withValues(alpha: 0.2)
-                                          : index == 1
-                                              ? Colors.grey.withValues(alpha: 0.2)
-                                              : index == 2
-                                                  ? Colors.brown.withValues(alpha: 0.2)
-                                                  : Colors.white10,
+                                          ? colorScheme.primary.withValues(
+                                              alpha: 0.2,
+                                            )
+                                          : colorScheme.outline.withValues(
+                                              alpha: 0.15,
+                                            ),
                                     ),
                                     child: Text(
                                       '${index + 1}',
@@ -456,12 +535,8 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                                         fontSize: 11,
                                         fontWeight: FontWeight.bold,
                                         color: index == 0
-                                            ? Colors.amberAccent
-                                            : index == 1
-                                                ? Colors.white70
-                                                : index == 2
-                                                    ? Colors.orangeAccent
-                                                    : Colors.white54,
+                                            ? colorScheme.primary
+                                            : colorScheme.onSurfaceVariant,
                                       ),
                                     ),
                                   ),
@@ -469,15 +544,26 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                                   if (appInfo?.icon != null)
                                     ClipRRect(
                                       borderRadius: BorderRadius.circular(6),
-                                      child: Image.memory(appInfo!.icon!, width: 26, height: 26),
+                                      child: Image.memory(
+                                        appInfo!.icon!,
+                                        width: 26,
+                                        height: 26,
+                                      ),
                                     )
                                   else
-                                    const Icon(Icons.android, size: 24, color: Colors.teal),
+                                    Icon(
+                                      Icons.android,
+                                      size: 24,
+                                      color: colorScheme.primary,
+                                    ),
                                   const SizedBox(width: 10),
                                   Expanded(
                                     child: Text(
                                       _getAppName(pkg),
-                                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 14,
+                                      ),
                                     ),
                                   ),
                                   Text(
@@ -487,7 +573,9 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                                     style: TextStyle(
                                       fontSize: 13,
                                       fontWeight: FontWeight.bold,
-                                      color: isOver ? Colors.redAccent : Colors.tealAccent,
+                                      color: isOver
+                                          ? Colors.redAccent
+                                          : colorScheme.primary,
                                     ),
                                   ),
                                 ],
@@ -498,13 +586,12 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                                 child: LinearProgressIndicator(
                                   value: progress,
                                   minHeight: 6,
-                                  backgroundColor: Colors.white10,
+                                  backgroundColor: colorScheme.outline
+                                      .withValues(alpha: 0.15),
                                   valueColor: AlwaysStoppedAnimation<Color>(
                                     isOver
                                         ? Colors.redAccent
-                                        : index == 0
-                                            ? Colors.amberAccent
-                                            : Colors.teal,
+                                        : colorScheme.primary,
                                   ),
                                 ),
                               ),
@@ -522,16 +609,24 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
             // Zen Space Card
             if (_zenModeEndTime > DateTime.now().millisecondsSinceEpoch)
               Card(
-                color: Theme.of(context).colorScheme.primaryContainer,
+                color: colorScheme.primaryContainer,
                 elevation: 0,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
                 child: Padding(
                   padding: const EdgeInsets.all(20.0),
                   child: Column(
                     children: [
                       const Icon(Icons.self_improvement, size: 40),
                       const SizedBox(height: 8),
-                      const Text('Zen Space Active', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                      const Text(
+                        'Zen Space Active',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                       const SizedBox(height: 4),
                       Text(
                         'Ends at ${_formatTime(DateTime.fromMillisecondsSinceEpoch(_zenModeEndTime))}',
@@ -548,21 +643,36 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
               )
             else
               Card(
-                color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                color: colorScheme.surfaceContainerHighest,
                 elevation: 0,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
                 child: Padding(
                   padding: const EdgeInsets.all(20.0),
                   child: Column(
                     children: [
-                      const Icon(Icons.self_improvement, size: 36, color: Colors.teal),
+                      Icon(
+                        Icons.self_improvement_rounded,
+                        size: 36,
+                        color: colorScheme.primary,
+                      ),
                       const SizedBox(height: 8),
-                      const Text('Enter Zen Space', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 4),
                       const Text(
+                        'Enter Zen Space',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
                         'Block all apps except your Zen Whitelist.',
                         textAlign: TextAlign.center,
-                        style: TextStyle(color: Colors.white70, fontSize: 13),
+                        style: TextStyle(
+                          color: colorScheme.onSurfaceVariant,
+                          fontSize: 13,
+                        ),
                       ),
                       const SizedBox(height: 16),
                       Wrap(
@@ -570,11 +680,19 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                         children: [15, 30, 60, 120].map((mins) {
                           final isSelected = _selectedZenMinutes == mins;
                           return ChoiceChip(
-                            label: Text(mins >= 60 ? '${mins ~/ 60}h' : '${mins}m'),
+                            label: Text(
+                              mins >= 60 ? '${mins ~/ 60}h' : '${mins}m',
+                            ),
                             selected: isSelected,
-                            selectedColor: Theme.of(context).colorScheme.primary,
+                            selectedColor: colorScheme.primaryContainer,
+                            labelStyle: TextStyle(
+                              color: isSelected
+                                  ? colorScheme.onPrimaryContainer
+                                  : colorScheme.onSurface,
+                            ),
                             onSelected: (selected) {
-                              if (selected) setState(() => _selectedZenMinutes = mins);
+                              if (selected)
+                                setState(() => _selectedZenMinutes = mins);
                             },
                           );
                         }).toList(),
@@ -583,8 +701,11 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                       ElevatedButton(
                         onPressed: () => _enterZenSpace(_selectedZenMinutes),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Theme.of(context).colorScheme.primary,
-                          foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                          backgroundColor: colorScheme.primary,
+                          foregroundColor: colorScheme.onPrimary,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                         ),
                         child: const Text('Start Zen Space'),
                       ),
@@ -596,7 +717,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
             const SizedBox(height: 16),
 
             // Testing buttons
-            Row(
+            /* Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 TextButton.icon(
@@ -644,7 +765,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                   },
                 ),
               ],
-            ),
+            ), */
           ],
         ),
       ),

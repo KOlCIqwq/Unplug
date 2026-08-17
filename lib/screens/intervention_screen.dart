@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
 import '../services/prompt_service.dart';
 
@@ -35,6 +36,7 @@ class _InterventionScreenState extends State<InterventionScreen>
   bool _proceeded = false;
   bool _isPopped = false;
   int _selectedMinutes = 5;
+  bool _showQuotes = true;
   String _phrase = PromptService.getRandomCuratedPrompt();
 
   @override
@@ -61,8 +63,21 @@ class _InterventionScreenState extends State<InterventionScreen>
     );
 
     _startTimer();
-    _loadDailyQuote();
+    _loadQuoteSettings();
     WidgetsBinding.instance.addObserver(this);
+  }
+
+  void _loadQuoteSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    final bool show = prefs.getBool('show_quotes') ?? true;
+    if (mounted) {
+      setState(() {
+        _showQuotes = show;
+      });
+    }
+    if (show) {
+      _loadDailyQuote();
+    }
   }
 
   List<int> _getAvailableSessionMinutes() {
@@ -84,6 +99,16 @@ class _InterventionScreenState extends State<InterventionScreen>
   }
 
   void _loadDailyQuote() {
+    PromptService.getNextQuote().then((quote) {
+      if (mounted && quote.isNotEmpty) {
+        setState(() {
+          _phrase = quote;
+        });
+      }
+    });
+  }
+
+  void _cycleNextQuote() {
     PromptService.getNextQuote().then((quote) {
       if (mounted && quote.isNotEmpty) {
         setState(() {
@@ -126,8 +151,10 @@ class _InterventionScreenState extends State<InterventionScreen>
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Scaffold(
-      backgroundColor: const Color(0xFF121212),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
@@ -149,27 +176,44 @@ class _InterventionScreenState extends State<InterventionScreen>
                         children: [
                           const Spacer(flex: 1),
 
-                          // Quote Text
-                          SizedBox(
-                            width: double.infinity,
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 12.0),
-                              child: Text(
-                                _phrase,
-                                textAlign: TextAlign.center,
-                                maxLines: 4,
-                                overflow: TextOverflow.ellipsis,
-                                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                  color: Colors.white.withValues(alpha: 0.9),
-                                  fontWeight: FontWeight.w400,
-                                  fontStyle: FontStyle.italic,
-                                  height: 1.35,
-                                  letterSpacing: 0.2,
+                          // App Logo Icon
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(16),
+                            child: Image.asset(
+                              'assets/logo.png',
+                              width: 54,
+                              height: 54,
+                              fit: BoxFit.contain,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+
+                          // Quote Text (if enabled in settings)
+                          if (_showQuotes) ...[
+                            GestureDetector(
+                              onTap: _cycleNextQuote,
+                              child: SizedBox(
+                                width: double.infinity,
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12.0),
+                                  child: Text(
+                                    _phrase,
+                                    textAlign: TextAlign.center,
+                                    maxLines: 4,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                      color: colorScheme.onSurface.withValues(alpha: 0.9),
+                                      fontWeight: FontWeight.w400,
+                                      fontStyle: FontStyle.italic,
+                                      height: 1.35,
+                                      letterSpacing: 0.2,
+                                    ),
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
-                          const SizedBox(height: 24),
+                            const SizedBox(height: 24),
+                          ],
 
                           // Breathing Circle Animation
                           SizedBox(
@@ -186,10 +230,10 @@ class _InterventionScreenState extends State<InterventionScreen>
                                       height: 75,
                                       decoration: BoxDecoration(
                                         shape: BoxShape.circle,
-                                        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
+                                        color: colorScheme.primary.withValues(alpha: 0.25),
                                         border: Border.all(
-                                          color: Theme.of(context).colorScheme.primary,
-                                          width: 2,
+                                          color: colorScheme.primary,
+                                          width: 2.5,
                                         ),
                                       ),
                                     ),
@@ -212,7 +256,7 @@ class _InterventionScreenState extends State<InterventionScreen>
                               textAlign: TextAlign.center,
                               style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                                 fontWeight: FontWeight.bold,
-                                color: Colors.white,
+                                color: colorScheme.onSurface,
                               ),
                             ),
                           ),
@@ -224,7 +268,7 @@ class _InterventionScreenState extends State<InterventionScreen>
                               child: Text(
                                 'You have reached your daily limit of ${widget.limitMinutes}m for ${widget.targetAppName} (Used: ${widget.usedMinutes}m today).',
                                 textAlign: TextAlign.center,
-                                style: const TextStyle(color: Colors.white70, fontSize: 14),
+                                style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 14),
                               ),
                             ),
                           ] else if (!widget.isZenBlock && widget.limitMinutes > 0) ...[
@@ -232,12 +276,12 @@ class _InterventionScreenState extends State<InterventionScreen>
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                               decoration: BoxDecoration(
-                                color: Colors.white10,
+                                color: colorScheme.surfaceContainerHighest,
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: Text(
                                 'Daily usage: ${widget.usedMinutes}m / ${widget.limitMinutes}m',
-                                style: const TextStyle(color: Colors.white70, fontSize: 12),
+                                style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 12),
                               ),
                             ),
                           ],
@@ -251,7 +295,7 @@ class _InterventionScreenState extends State<InterventionScreen>
                                   ? 'Set your session limit (${widget.limitMinutes - widget.usedMinutes}m left today)'
                                   : 'Set your session limit',
                               style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                                color: Colors.white70,
+                                color: colorScheme.onSurfaceVariant,
                               ),
                             ),
                             const SizedBox(height: 12),
@@ -266,7 +310,11 @@ class _InterventionScreenState extends State<InterventionScreen>
                                   return ChoiceChip(
                                     label: Text('$mins min${mins > 1 ? 's' : ''}'),
                                     selected: isSelected,
-                                    selectedColor: Theme.of(context).colorScheme.primary,
+                                    selectedColor: colorScheme.primaryContainer,
+                                    labelStyle: TextStyle(
+                                      color: isSelected ? colorScheme.onPrimaryContainer : colorScheme.onSurface,
+                                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                    ),
                                     onSelected: (selected) {
                                       if (selected) {
                                         setState(() {
@@ -291,8 +339,9 @@ class _InterventionScreenState extends State<InterventionScreen>
                                   horizontal: 32,
                                   vertical: 14,
                                 ),
-                                backgroundColor: Theme.of(context).colorScheme.primary,
-                                foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                                backgroundColor: colorScheme.primary,
+                                foregroundColor: colorScheme.onPrimary,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                               ),
                               child: Text('Continue for $_selectedMinutes min${_selectedMinutes > 1 ? 's' : ''}'),
                             ),
@@ -308,11 +357,12 @@ class _InterventionScreenState extends State<InterventionScreen>
                                   horizontal: 48,
                                   vertical: 14,
                                 ),
-                                side: const BorderSide(color: Colors.white54),
+                                side: BorderSide(color: colorScheme.outline.withValues(alpha: 0.6)),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                               ),
                               child: Text(
                                 widget.isLimitBlock ? 'Close' : 'Cancel',
-                                style: const TextStyle(color: Colors.white),
+                                style: TextStyle(color: colorScheme.onSurface),
                               ),
                             ),
 

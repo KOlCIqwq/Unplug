@@ -8,29 +8,140 @@ import 'screens/zen_apps_screen.dart';
 import 'screens/settings_screen.dart';
 import 'services/prompt_service.dart';
 
-
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+final ValueNotifier<ThemeMode> themeNotifier = ValueNotifier<ThemeMode>(ThemeMode.system);
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await _loadSavedTheme();
   runApp(const DetoxApp());
+}
+
+Future<void> _loadSavedTheme() async {
+  final prefs = await SharedPreferences.getInstance();
+  final savedMode = prefs.getString('theme_mode') ?? 'system';
+  if (savedMode == 'light') {
+    themeNotifier.value = ThemeMode.light;
+  } else if (savedMode == 'dark') {
+    themeNotifier.value = ThemeMode.dark;
+  } else {
+    themeNotifier.value = ThemeMode.system;
+  }
 }
 
 class DetoxApp extends StatelessWidget {
   const DetoxApp({super.key});
 
+  static final ThemeData lightTheme = ThemeData(
+    useMaterial3: true,
+    brightness: Brightness.light,
+    colorScheme: const ColorScheme.light(
+      primary: Color(0xFFF77E36),
+      onPrimary: Colors.white,
+      primaryContainer: Color(0xFFFFDEC9),
+      onPrimaryContainer: Color(0xFF3B1600),
+      secondary: Color(0xFFE88746),
+      onSecondary: Colors.white,
+      secondaryContainer: Color(0xFFFFE8DC),
+      onSecondaryContainer: Color(0xFF331A0B),
+      surface: Color(0xFFFAF7F2),
+      onSurface: Color(0xFF222124),
+      surfaceContainerHighest: Color(0xFFF0E9DF),
+      onSurfaceVariant: Color(0xFF5D5752),
+      outline: Color(0xFF8A827B),
+    ),
+    scaffoldBackgroundColor: const Color(0xFFFAF7F2),
+    appBarTheme: const AppBarTheme(
+      backgroundColor: Color(0xFFFAF7F2),
+      foregroundColor: Color(0xFF222124),
+      elevation: 0,
+      centerTitle: false,
+    ),
+    cardTheme: CardThemeData(
+      color: const Color(0xFFF3EDE2),
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+    ),
+    navigationBarTheme: NavigationBarThemeData(
+      backgroundColor: const Color(0xFFF3EDE2),
+      indicatorColor: const Color(0xFFFFDEC9),
+      labelTextStyle: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.selected)) {
+          return const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFFF77E36));
+        }
+        return const TextStyle(fontSize: 12, color: Color(0xFF5D5752));
+      }),
+      iconTheme: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.selected)) {
+          return const IconThemeData(color: Color(0xFFF77E36));
+        }
+        return const IconThemeData(color: Color(0xFF5D5752));
+      }),
+    ),
+  );
+
+  static final ThemeData darkTheme = ThemeData(
+    useMaterial3: true,
+    brightness: Brightness.dark,
+    colorScheme: const ColorScheme.dark(
+      primary: Color(0xFFFA8C42),
+      onPrimary: Color(0xFF4C1E00),
+      primaryContainer: Color(0xFF6C2E00),
+      onPrimaryContainer: Color(0xFFFFDEC9),
+      secondary: Color(0xFFE5BFA8),
+      onSecondary: Color(0xFF432B1B),
+      secondaryContainer: Color(0xFF5C4130),
+      onSecondaryContainer: Color(0xFFFFDEC9),
+      surface: Color(0xFF151417),
+      onSurface: Color(0xFFEDE9E3),
+      surfaceContainerHighest: Color(0xFF242228),
+      onSurfaceVariant: Color(0xFFD6CDC4),
+      outline: Color(0xFF9E948C),
+    ),
+    scaffoldBackgroundColor: const Color(0xFF151417),
+    appBarTheme: const AppBarTheme(
+      backgroundColor: Color(0xFF151417),
+      foregroundColor: Color(0xFFEDE9E3),
+      elevation: 0,
+      centerTitle: false,
+    ),
+    cardTheme: CardThemeData(
+      color: const Color(0xFF211F25),
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+    ),
+    navigationBarTheme: NavigationBarThemeData(
+      backgroundColor: const Color(0xFF1D1B21),
+      indicatorColor: const Color(0xFF6C2E00),
+      labelTextStyle: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.selected)) {
+          return const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFFFA8C42));
+        }
+        return const TextStyle(fontSize: 12, color: Color(0xFFD6CDC4));
+      }),
+      iconTheme: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.selected)) {
+          return const IconThemeData(color: Color(0xFFFA8C42));
+        }
+        return const IconThemeData(color: Color(0xFFD6CDC4));
+      }),
+    ),
+  );
+
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      navigatorKey: navigatorKey,
-      title: 'Doomscroll Detox',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: Colors.teal,
-          brightness: Brightness.dark,
-        ),
-        useMaterial3: true,
-      ),
-      home: const MainNavigation(),
+    return ValueListenableBuilder<ThemeMode>(
+      valueListenable: themeNotifier,
+      builder: (context, currentThemeMode, _) {
+        return MaterialApp(
+          navigatorKey: navigatorKey,
+          title: 'Unplug Detox',
+          theme: lightTheme,
+          darkTheme: darkTheme,
+          themeMode: currentThemeMode,
+          home: const MainNavigation(),
+        );
+      },
     );
   }
 }
@@ -124,9 +235,8 @@ class _MainNavigationState extends State<MainNavigation> {
       );
 
       if (proceeded == false || proceeded == null) {
-        await platform.invokeMethod('goHome'); // Kick them back to the home screen
+        await platform.invokeMethod('goHome');
       } else if (proceeded is int) {
-        // Native side will whitelist it for the chosen minutes, decrement the optimistic resist counter, and launch it
         await platform.invokeMethod('allowAppTemporarily', {
           'package': packageName,
           'durationMinutes': proceeded,
@@ -190,6 +300,3 @@ class _MainNavigationState extends State<MainNavigation> {
     );
   }
 }
-
-// Stubs for the screens
-

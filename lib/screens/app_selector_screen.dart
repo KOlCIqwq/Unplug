@@ -107,11 +107,12 @@ class _AppSelectorScreenState extends State<AppSelectorScreen> {
   Future<void> _setAppDailyLimit(String packageName, String appName, int currentLimit) async {
     int selectedLimit = currentLimit;
     final presets = [0, 15, 30, 45, 60, 90, 120];
+    final colorScheme = Theme.of(context).colorScheme;
 
     final result = await showModalBottomSheet<int>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Theme.of(context).colorScheme.surface,
+      backgroundColor: colorScheme.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -131,7 +132,7 @@ class _AppSelectorScreenState extends State<AppSelectorScreen> {
                 children: [
                   Row(
                     children: [
-                      const Icon(Icons.timer_outlined, color: Colors.teal),
+                      Icon(Icons.timer_outlined, color: colorScheme.primary),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text(
@@ -145,9 +146,9 @@ class _AppSelectorScreenState extends State<AppSelectorScreen> {
                     ],
                   ),
                   const SizedBox(height: 8),
-                  const Text(
+                  Text(
                     'When this limit is reached, opening the app will be completely blocked for the rest of today.',
-                    style: TextStyle(color: Colors.white70, fontSize: 13),
+                    style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 13),
                   ),
                   const SizedBox(height: 20),
                   Wrap(
@@ -163,7 +164,11 @@ class _AppSelectorScreenState extends State<AppSelectorScreen> {
                       return ChoiceChip(
                         label: Text(label),
                         selected: isSelected,
-                        selectedColor: Theme.of(context).colorScheme.primary,
+                        selectedColor: colorScheme.primaryContainer,
+                        labelStyle: TextStyle(
+                          color: isSelected ? colorScheme.onPrimaryContainer : colorScheme.onSurface,
+                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                        ),
                         onSelected: (selected) {
                           if (selected) {
                             setSheetState(() {
@@ -186,8 +191,9 @@ class _AppSelectorScreenState extends State<AppSelectorScreen> {
                       ElevatedButton(
                         onPressed: () => Navigator.of(context).pop(selectedLimit),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Theme.of(context).colorScheme.primary,
-                          foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                          backgroundColor: colorScheme.primary,
+                          foregroundColor: colorScheme.onPrimary,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         ),
                         child: const Text('Save Limit'),
                       ),
@@ -222,6 +228,8 @@ class _AppSelectorScreenState extends State<AppSelectorScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Select Apps to Block'),
@@ -230,13 +238,13 @@ class _AppSelectorScreenState extends State<AppSelectorScreen> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : !kIsWeb && !Platform.isAndroid
-              ? const Center(
+              ? Center(
                   child: Padding(
-                    padding: EdgeInsets.all(16.0),
+                    padding: const EdgeInsets.all(16.0),
                     child: Text(
                       'App loading is only supported on Android. Please run this app on an Android emulator or device to see your installed apps.',
                       textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 16),
+                      style: TextStyle(fontSize: 16, color: colorScheme.onSurfaceVariant),
                     ),
                   ),
                 )
@@ -252,9 +260,12 @@ class _AppSelectorScreenState extends State<AppSelectorScreen> {
 
                     return ListTile(
                       leading: app.icon != null
-                          ? Image.memory(app.icon!, width: 40, height: 40)
-                          : const Icon(Icons.android),
-                      title: Text(app.name),
+                          ? ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child: Image.memory(app.icon!, width: 40, height: 40),
+                            )
+                          : Icon(Icons.android, color: colorScheme.primary),
+                      title: Text(app.name, style: const TextStyle(fontWeight: FontWeight.w600)),
                       subtitle: isBlocked
                           ? Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -266,7 +277,7 @@ class _AppSelectorScreenState extends State<AppSelectorScreen> {
                                       : 'No daily limit • Used: ${_formatMinutes(used)} today',
                                   style: TextStyle(
                                     fontSize: 12,
-                                    color: isOver ? Colors.redAccent : Colors.grey[400],
+                                    color: isOver ? Colors.redAccent : colorScheme.onSurfaceVariant,
                                     fontWeight: isOver ? FontWeight.bold : FontWeight.normal,
                                   ),
                                 ),
@@ -279,7 +290,7 @@ class _AppSelectorScreenState extends State<AppSelectorScreen> {
                                 ],
                               ],
                             )
-                          : Text(packageName, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                          : Text(packageName, style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant)),
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -287,7 +298,7 @@ class _AppSelectorScreenState extends State<AppSelectorScreen> {
                             IconButton(
                               icon: Icon(
                                 limit > 0 ? Icons.timer : Icons.timer_outlined,
-                                color: limit > 0 ? Colors.teal : Colors.grey,
+                                color: limit > 0 ? colorScheme.primary : colorScheme.onSurfaceVariant,
                                 size: 22,
                               ),
                               tooltip: 'Set Daily Limit',
@@ -295,7 +306,7 @@ class _AppSelectorScreenState extends State<AppSelectorScreen> {
                             ),
                           Switch(
                             value: isBlocked,
-                            activeThumbColor: Theme.of(context).colorScheme.primary,
+                            activeThumbColor: colorScheme.primary,
                             onChanged: (value) => _toggleAppBlock(packageName),
                           ),
                         ],

@@ -48,7 +48,6 @@ class _ZenAppsScreenState extends State<ZenAppsScreen> {
           _isLoading = false;
         });
       } else {
-        // Mock data for testing on non-Android platforms
         setState(() {
           _isLoading = false;
         });
@@ -73,6 +72,8 @@ class _ZenAppsScreenState extends State<ZenAppsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Allowed Zen Apps'),
@@ -81,13 +82,13 @@ class _ZenAppsScreenState extends State<ZenAppsScreen> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : !kIsWeb && !Platform.isAndroid
-              ? const Center(
+              ? Center(
                   child: Padding(
-                    padding: EdgeInsets.all(16.0),
+                    padding: const EdgeInsets.all(16.0),
                     child: Text(
                       'App loading is only supported on Android. Please run this app on an Android emulator or device to see your installed apps.',
                       textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 16),
+                      style: TextStyle(fontSize: 16, color: colorScheme.onSurfaceVariant),
                     ),
                   ),
                 )
@@ -100,13 +101,16 @@ class _ZenAppsScreenState extends State<ZenAppsScreen> {
                     
                     return ListTile(
                       leading: app.icon != null
-                          ? Image.memory(app.icon!, width: 40, height: 40)
-                          : const Icon(Icons.android),
-                      title: Text(app.name),
-                      subtitle: Text(packageName, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                          ? ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child: Image.memory(app.icon!, width: 40, height: 40),
+                            )
+                          : Icon(Icons.android, color: colorScheme.primary),
+                      title: Text(app.name, style: const TextStyle(fontWeight: FontWeight.w600)),
+                      subtitle: Text(packageName, style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant)),
                       trailing: Switch(
                         value: isAllowed,
-                        activeThumbColor: Theme.of(context).colorScheme.primary,
+                        activeThumbColor: colorScheme.primary,
                         onChanged: (value) => _toggleAppAllow(packageName),
                       ),
                       onTap: () => _toggleAppAllow(packageName),
