@@ -57,12 +57,7 @@ class MainActivity: FlutterActivity() {
                     val durationMinutes = (args?.get("durationMinutes") as? Number)?.toInt() ?: 5
 
                     if (packageName != null) {
-                        // User proceeded; revert the optimistic resist increment
                         val prefs = getSharedPreferences("FlutterSharedPreferences", MODE_PRIVATE)
-                        val currentCount = AppBlockerService.getSafeInt(prefs, "flutter.cancel_count", 0)
-                        if (currentCount > 0) {
-                            prefs.edit().putLong("flutter.cancel_count", (currentCount - 1).toLong()).apply()
-                        }
 
                         var effectiveDurationMinutes = durationMinutes
                         val limitMins = AppBlockerService.getSafeInt(prefs, "flutter.limit_$packageName", 0)

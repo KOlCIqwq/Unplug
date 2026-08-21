@@ -7,6 +7,7 @@ import 'screens/app_selector_screen.dart';
 import 'screens/zen_apps_screen.dart';
 import 'screens/settings_screen.dart';
 import 'services/prompt_service.dart';
+import 'services/stats_service.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 final ValueNotifier<ThemeMode> themeNotifier = ValueNotifier<ThemeMode>(ThemeMode.system);
@@ -235,6 +236,7 @@ class _MainNavigationState extends State<MainNavigation> {
       );
 
       if (proceeded == false || proceeded == null) {
+        await StatsService.recordResist(packageName);
         await platform.invokeMethod('goHome');
       } else if (proceeded is int) {
         await platform.invokeMethod('allowAppTemporarily', {

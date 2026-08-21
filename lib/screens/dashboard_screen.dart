@@ -6,6 +6,7 @@ import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'dart:async';
 import 'intervention_screen.dart';
+import '../services/stats_service.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -14,9 +15,9 @@ class DashboardScreen extends StatefulWidget {
   State<DashboardScreen> createState() => _DashboardScreenState();
 }
 
-class _DashboardScreenState extends State<DashboardScreen>
-    with WidgetsBindingObserver {
+class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingObserver {
   int _cancelCount = 0;
+  int _totalSavedMinutes = 0;
   bool _isLoading = true;
   int _zenModeEndTime = 0;
   int _selectedZenMinutes = 15;
@@ -63,10 +64,7 @@ class _DashboardScreenState extends State<DashboardScreen>
   Future<void> _loadInstalledApps() async {
     try {
       if (!kIsWeb && Platform.isAndroid) {
-        final apps = await InstalledApps.getInstalledApps(
-          excludeSystemApps: true,
-          withIcon: true,
-        );
+        final apps = await InstalledApps.getInstalledApps(excludeSystemApps: true, withIcon: true);
         final Map<String, AppInfo> map = {};
         for (final app in apps) {
           map[app.packageName] = app;
@@ -87,6 +85,8 @@ class _DashboardScreenState extends State<DashboardScreen>
 
     final List<Map<String, dynamic>> usageList = [];
     int totalMins = 0;
+    int calculatedSavedMinutes = prefs.getInt('total_saved_minutes') ?? 0;
+    final int cancelCount = prefs.getInt('cancel_count') ?? 0;
 
     for (final pkg in blocked) {
       final limitMins = prefs.getInt('limit_$pkg') ?? 0;
@@ -94,17 +94,42 @@ class _DashboardScreenState extends State<DashboardScreen>
       final usedMins = (usedMs / (60 * 1000)).toInt();
       totalMins += usedMins;
 
-      if (limitMins > 0 || usedMins > 0) {
-        usageList.add({'package': pkg, 'limit': limitMins, 'used': usedMins});
-      }
+      final totalSessionMs = prefs.getInt('total_session_ms_$pkg') ?? 0;
+      final sessionCount = prefs.getInt('sessions_count_$pkg') ?? 0;
+      final int avgSessionMins = (sessionCount > 0 && totalSessionMs > 0)
+          ? ((totalSessionMs / sessionCount) / (60 * 1000)).round().clamp(1, 120)
+          : 8;
+
+      final int appResists = prefs.getInt('resists_$pkg') ?? 0;
+      final int appSavedMins = prefs.getInt('saved_minutes_$pkg') ?? (appResists * avgSessionMins);
+
+      usageList.add({
+        'package': pkg,
+        'limit': limitMins,
+        'used': usedMins,
+        'avgSession': avgSessionMins,
+        'sessionCount': sessionCount,
+        'resists': appResists,
+        'savedMinutes': appSavedMins,
+      });
     }
 
-    // Sort by most used first
-    usageList.sort((a, b) => (b['used'] as int).compareTo(a['used'] as int));
+    // Fallback if total_saved_minutes was not tracked in older runs
+    if (calculatedSavedMinutes == 0 && cancelCount > 0) {
+      calculatedSavedMinutes = cancelCount * 8;
+    }
+
+    // Sort by most used first, then by resists
+    usageList.sort((a, b) {
+      final int usedComp = (b['used'] as int).compareTo(a['used'] as int);
+      if (usedComp != 0) return usedComp;
+      return (b['resists'] as int).compareTo(a['resists'] as int);
+    });
 
     if (mounted) {
       setState(() {
-        _cancelCount = prefs.getInt('cancel_count') ?? 0;
+        _cancelCount = cancelCount;
+        _totalSavedMinutes = calculatedSavedMinutes;
         _zenModeEndTime = prefs.getInt('zen_mode_end_time') ?? 0;
         _appUsageList = usageList;
         _totalUsedMinutes = totalMins;
@@ -114,8 +139,7 @@ class _DashboardScreenState extends State<DashboardScreen>
 
     _zenTimer?.cancel();
     _zenTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (_zenModeEndTime > 0 &&
-          DateTime.now().millisecondsSinceEpoch > _zenModeEndTime) {
+      if (_zenModeEndTime > 0 && DateTime.now().millisecondsSinceEpoch > _zenModeEndTime) {
         if (mounted) {
           setState(() {
             _zenModeEndTime = 0;
@@ -129,21 +153,9 @@ class _DashboardScreenState extends State<DashboardScreen>
     });
   }
 
-  Future<void> _incrementCancelCount() async {
-    final prefs = await SharedPreferences.getInstance();
-    int newCount = _cancelCount + 1;
-    await prefs.setInt('cancel_count', newCount);
-    if (mounted) {
-      setState(() {
-        _cancelCount = newCount;
-      });
-    }
-  }
-
   Future<void> _enterZenSpace(int minutes) async {
     final prefs = await SharedPreferences.getInstance();
-    final endTime =
-        DateTime.now().millisecondsSinceEpoch + (minutes * 60 * 1000);
+    final endTime = DateTime.now().millisecondsSinceEpoch + (minutes * 60 * 1000);
     await prefs.setInt('zen_mode_end_time', endTime);
     if (mounted) {
       setState(() {
@@ -197,9 +209,7 @@ class _DashboardScreenState extends State<DashboardScreen>
     }
 
     final colorScheme = Theme.of(context).colorScheme;
-    final int estimatedMinutesSaved = _cancelCount * 5;
-    final mostUsedApp =
-        _appUsageList.isNotEmpty && (_appUsageList.first['used'] as int) > 0
+    final mostUsedApp = _appUsageList.isNotEmpty && (_appUsageList.first['used'] as int) > 0
         ? _appUsageList.first
         : null;
 
@@ -209,12 +219,7 @@ class _DashboardScreenState extends State<DashboardScreen>
           children: [
             ClipRRect(
               borderRadius: BorderRadius.circular(8),
-              child: Image.asset(
-                'assets/logo.png',
-                width: 30,
-                height: 30,
-                fit: BoxFit.contain,
-              ),
+              child: Image.asset('assets/logo.png', width: 30, height: 30, fit: BoxFit.contain),
             ),
             const SizedBox(width: 10),
             const Text(
@@ -237,9 +242,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                   child: Card(
                     color: colorScheme.surfaceContainerHighest,
                     elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                     child: Padding(
                       padding: const EdgeInsets.all(16.0),
                       child: Column(
@@ -247,37 +250,26 @@ class _DashboardScreenState extends State<DashboardScreen>
                         children: [
                           Row(
                             children: [
-                              Icon(
-                                Icons.shield_moon_rounded,
-                                size: 20,
-                                color: colorScheme.primary,
-                              ),
+                              Icon(Icons.shield_moon_rounded, size: 20, color: colorScheme.primary),
                               const SizedBox(width: 8),
                               Text(
                                 'Resisted',
-                                style: TextStyle(
-                                  color: colorScheme.onSurfaceVariant,
-                                  fontSize: 13,
-                                ),
+                                style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 13),
                               ),
                             ],
                           ),
                           const SizedBox(height: 10),
                           Text(
                             '$_cancelCount times',
-                            style: Theme.of(context).textTheme.titleLarge
-                                ?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                  color: colorScheme.primary,
-                                ),
+                            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: colorScheme.primary,
+                            ),
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            '~$estimatedMinutesSaved mins saved',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: colorScheme.onSurfaceVariant,
-                            ),
+                            '~${_formatMinutes(_totalSavedMinutes)} saved',
+                            style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant),
                           ),
                         ],
                       ),
@@ -289,9 +281,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                   child: Card(
                     color: colorScheme.surfaceContainerHighest,
                     elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                     child: Padding(
                       padding: const EdgeInsets.all(16.0),
                       child: Column(
@@ -299,37 +289,26 @@ class _DashboardScreenState extends State<DashboardScreen>
                         children: [
                           Row(
                             children: [
-                              const Icon(
-                                Icons.timer_outlined,
-                                size: 20,
-                                color: Color(0xFFFA8C42),
-                              ),
+                              const Icon(Icons.timer_outlined, size: 20, color: Color(0xFFFA8C42)),
                               const SizedBox(width: 8),
                               Text(
                                 'Screen Time',
-                                style: TextStyle(
-                                  color: colorScheme.onSurfaceVariant,
-                                  fontSize: 13,
-                                ),
+                                style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 13),
                               ),
                             ],
                           ),
                           const SizedBox(height: 10),
                           Text(
                             _formatMinutes(_totalUsedMinutes),
-                            style: Theme.of(context).textTheme.titleLarge
-                                ?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                  color: const Color(0xFFFA8C42),
-                                ),
+                            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: const Color(0xFFFA8C42),
+                            ),
                           ),
                           const SizedBox(height: 4),
                           Text(
                             'Tracked today',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: colorScheme.onSurfaceVariant,
-                            ),
+                            style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant),
                           ),
                         ],
                       ),
@@ -348,9 +327,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                 elevation: 0,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
-                  side: BorderSide(
-                    color: colorScheme.primary.withValues(alpha: 0.3),
-                  ),
+                  side: BorderSide(color: colorScheme.primary.withValues(alpha: 0.3)),
                 ),
                 child: Padding(
                   padding: const EdgeInsets.all(18.0),
@@ -362,11 +339,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                           shape: BoxShape.circle,
                           color: colorScheme.primary.withValues(alpha: 0.2),
                         ),
-                        child: Icon(
-                          Icons.star_rounded,
-                          color: colorScheme.primary,
-                          size: 28,
-                        ),
+                        child: Icon(Icons.star_rounded, color: colorScheme.primary, size: 28),
                       ),
                       const SizedBox(width: 16),
                       Expanded(
@@ -392,39 +365,25 @@ class _DashboardScreenState extends State<DashboardScreen>
                             ),
                             const SizedBox(height: 2),
                             Text(
-                              '${_formatMinutes(mostUsedApp['used'] as int)} spent today'
-                              '${(mostUsedApp['limit'] as int) > 0 ? ' (Limit: ${_formatMinutes(mostUsedApp['limit'] as int)})' : ''}',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: colorScheme.onSurfaceVariant,
-                              ),
+                              '${_formatMinutes(mostUsedApp['used'] as int)} spent today • Avg session: ${_formatMinutes(mostUsedApp['avgSession'] as int)}'
+                              '${(mostUsedApp['limit'] as int) > 0 ? '\nLimit: ${_formatMinutes(mostUsedApp['limit'] as int)}' : ''}',
+                              style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant),
                             ),
                           ],
                         ),
                       ),
                       if ((mostUsedApp['limit'] as int) > 0 &&
-                          (mostUsedApp['used'] as int) >=
-                              (mostUsedApp['limit'] as int))
+                          (mostUsedApp['used'] as int) >= (mostUsedApp['limit'] as int))
                         Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
                             color: Colors.redAccent.withValues(alpha: 0.2),
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: Colors.redAccent,
-                              width: 1,
-                            ),
+                            border: Border.all(color: Colors.redAccent, width: 1),
                           ),
                           child: const Text(
                             'LOCKED',
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.redAccent,
-                            ),
+                            style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.redAccent),
                           ),
                         ),
                     ],
@@ -438,9 +397,7 @@ class _DashboardScreenState extends State<DashboardScreen>
             Card(
               color: colorScheme.surfaceContainerHighest,
               elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               child: Padding(
                 padding: const EdgeInsets.all(20.0),
                 child: Column(
@@ -451,25 +408,19 @@ class _DashboardScreenState extends State<DashboardScreen>
                       children: [
                         Row(
                           children: [
-                            Icon(
-                              Icons.leaderboard_rounded,
-                              size: 20,
-                              color: colorScheme.primary,
-                            ),
+                            Icon(Icons.leaderboard_rounded, size: 20, color: colorScheme.primary),
                             const SizedBox(width: 8),
                             Text(
                               'App Usage Breakdown',
-                              style: Theme.of(context).textTheme.titleMedium
-                                  ?.copyWith(fontWeight: FontWeight.bold),
+                              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ],
                         ),
                         Text(
                           '${_appUsageList.length} tracked',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: colorScheme.onSurfaceVariant,
-                          ),
+                          style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant),
                         ),
                       ],
                     ),
@@ -481,10 +432,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                           child: Text(
                             'No blocked apps configured yet.\nSelect apps in the "Blocked Apps" tab to track usage.',
                             textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: colorScheme.onSurfaceVariant,
-                              fontSize: 13,
-                            ),
+                            style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 13),
                           ),
                         ),
                       )
@@ -494,21 +442,23 @@ class _DashboardScreenState extends State<DashboardScreen>
                         final String pkg = item['package'] as String;
                         final int limit = item['limit'] as int;
                         final int used = item['used'] as int;
+                        final int avgSession = item['avgSession'] as int;
+                        final int resists = item['resists'] as int;
+                        final int saved = item['savedMinutes'] as int;
                         final AppInfo? appInfo = _installedAppMap[pkg];
                         final bool hasLimit = limit > 0;
                         final bool isOver = hasLimit && used >= limit;
 
                         // Progress percentage relative to limit or max used app
-                        final int maxUsed =
-                            (_appUsageList.first['used'] as int);
+                        final int maxUsed = (_appUsageList.first['used'] as int);
                         final double progress = hasLimit
                             ? (used / limit).clamp(0.0, 1.0)
                             : maxUsed > 0
-                            ? (used / maxUsed).clamp(0.0, 1.0)
-                            : 0.0;
+                                ? (used / maxUsed).clamp(0.0, 1.0)
+                                : 0.0;
 
                         return Padding(
-                          padding: const EdgeInsets.only(bottom: 16.0),
+                          padding: const EdgeInsets.only(bottom: 18.0),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -522,12 +472,8 @@ class _DashboardScreenState extends State<DashboardScreen>
                                     decoration: BoxDecoration(
                                       shape: BoxShape.circle,
                                       color: index == 0
-                                          ? colorScheme.primary.withValues(
-                                              alpha: 0.2,
-                                            )
-                                          : colorScheme.outline.withValues(
-                                              alpha: 0.15,
-                                            ),
+                                          ? colorScheme.primary.withValues(alpha: 0.2)
+                                          : colorScheme.outline.withValues(alpha: 0.15),
                                     ),
                                     child: Text(
                                       '${index + 1}',
@@ -544,26 +490,15 @@ class _DashboardScreenState extends State<DashboardScreen>
                                   if (appInfo?.icon != null)
                                     ClipRRect(
                                       borderRadius: BorderRadius.circular(6),
-                                      child: Image.memory(
-                                        appInfo!.icon!,
-                                        width: 26,
-                                        height: 26,
-                                      ),
+                                      child: Image.memory(appInfo!.icon!, width: 26, height: 26),
                                     )
                                   else
-                                    Icon(
-                                      Icons.android,
-                                      size: 24,
-                                      color: colorScheme.primary,
-                                    ),
+                                    Icon(Icons.android, size: 24, color: colorScheme.primary),
                                   const SizedBox(width: 10),
                                   Expanded(
                                     child: Text(
                                       _getAppName(pkg),
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.w600,
-                                        fontSize: 14,
-                                      ),
+                                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
                                     ),
                                   ),
                                   Text(
@@ -573,27 +508,39 @@ class _DashboardScreenState extends State<DashboardScreen>
                                     style: TextStyle(
                                       fontSize: 13,
                                       fontWeight: FontWeight.bold,
-                                      color: isOver
-                                          ? Colors.redAccent
-                                          : colorScheme.primary,
+                                      color: isOver ? Colors.redAccent : colorScheme.primary,
                                     ),
                                   ),
                                 ],
                               ),
-                              const SizedBox(height: 8),
+                              const SizedBox(height: 6),
                               ClipRRect(
                                 borderRadius: BorderRadius.circular(4),
                                 child: LinearProgressIndicator(
                                   value: progress,
                                   minHeight: 6,
-                                  backgroundColor: colorScheme.outline
-                                      .withValues(alpha: 0.15),
+                                  backgroundColor: colorScheme.outline.withValues(alpha: 0.15),
                                   valueColor: AlwaysStoppedAnimation<Color>(
                                     isOver
                                         ? Colors.redAccent
                                         : colorScheme.primary,
                                   ),
                                 ),
+                              ),
+                              const SizedBox(height: 4),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    'Avg session: ${_formatMinutes(avgSession)}',
+                                    style: TextStyle(fontSize: 11, color: colorScheme.onSurfaceVariant),
+                                  ),
+                                  if (resists > 0)
+                                    Text(
+                                      'Resisted: ${resists}x (${_formatMinutes(saved)} saved)',
+                                      style: TextStyle(fontSize: 11, color: colorScheme.primary, fontWeight: FontWeight.w500),
+                                    ),
+                                ],
                               ),
                             ],
                           ),
@@ -611,22 +558,14 @@ class _DashboardScreenState extends State<DashboardScreen>
               Card(
                 color: colorScheme.primaryContainer,
                 elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                 child: Padding(
                   padding: const EdgeInsets.all(20.0),
                   child: Column(
                     children: [
                       const Icon(Icons.self_improvement, size: 40),
                       const SizedBox(height: 8),
-                      const Text(
-                        'Zen Space Active',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
+                      const Text('Zen Space Active', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 4),
                       Text(
                         'Ends at ${_formatTime(DateTime.fromMillisecondsSinceEpoch(_zenModeEndTime))}',
@@ -645,34 +584,19 @@ class _DashboardScreenState extends State<DashboardScreen>
               Card(
                 color: colorScheme.surfaceContainerHighest,
                 elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                 child: Padding(
                   padding: const EdgeInsets.all(20.0),
                   child: Column(
                     children: [
-                      Icon(
-                        Icons.self_improvement_rounded,
-                        size: 36,
-                        color: colorScheme.primary,
-                      ),
+                      Icon(Icons.self_improvement_rounded, size: 36, color: colorScheme.primary),
                       const SizedBox(height: 8),
-                      const Text(
-                        'Enter Zen Space',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
+                      const Text('Enter Zen Space', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 4),
                       Text(
                         'Block all apps except your Zen Whitelist.',
                         textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: colorScheme.onSurfaceVariant,
-                          fontSize: 13,
-                        ),
+                        style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 13),
                       ),
                       const SizedBox(height: 16),
                       Wrap(
@@ -680,15 +604,11 @@ class _DashboardScreenState extends State<DashboardScreen>
                         children: [15, 30, 60, 120].map((mins) {
                           final isSelected = _selectedZenMinutes == mins;
                           return ChoiceChip(
-                            label: Text(
-                              mins >= 60 ? '${mins ~/ 60}h' : '${mins}m',
-                            ),
+                            label: Text(mins >= 60 ? '${mins ~/ 60}h' : '${mins}m'),
                             selected: isSelected,
                             selectedColor: colorScheme.primaryContainer,
                             labelStyle: TextStyle(
-                              color: isSelected
-                                  ? colorScheme.onPrimaryContainer
-                                  : colorScheme.onSurface,
+                              color: isSelected ? colorScheme.onPrimaryContainer : colorScheme.onSurface,
                             ),
                             onSelected: (selected) {
                               if (selected) {
@@ -704,9 +624,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                         style: ElevatedButton.styleFrom(
                           backgroundColor: colorScheme.primary,
                           foregroundColor: colorScheme.onPrimary,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         ),
                         child: const Text('Start Zen Space'),
                       ),
@@ -740,8 +658,9 @@ class _DashboardScreenState extends State<DashboardScreen>
                       ),
                     );
 
-                    if (proceeded == false) {
-                      _incrementCancelCount();
+                    if (proceeded == false || proceeded == null) {
+                      await StatsService.recordResist('com.instagram.android');
+                      await _loadStats();
                     }
                   },
                 ),

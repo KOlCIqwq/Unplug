@@ -59,10 +59,27 @@ class AppBlockerService : AccessibilityService() {
             try {
                 val prefs = context.getSharedPreferences("FlutterSharedPreferences", MODE_PRIVATE)
                 val dateKey = getTodayDateKey()
-                val key = "flutter.usage_${dateKey}_$packageName"
-                val currentMs = getSafeLong(prefs, key, 0L)
-                prefs.edit().putLong(key, currentMs + elapsedMs).apply()
-                Log.d("AppBlockerService", "Recorded ${elapsedMs / 1000}s usage for $packageName on $dateKey (total: ${(currentMs + elapsedMs) / 1000}s)")
+                
+                // 1. Daily usage
+                val dailyKey = "flutter.usage_${dateKey}_$packageName"
+                val currentDailyMs = getSafeLong(prefs, dailyKey, 0L)
+                
+                // 2. All-time session tracking for mean session calculation
+                val totalMsKey = "flutter.total_session_ms_$packageName"
+                val countKey = "flutter.sessions_count_$packageName"
+                val currentTotalMs = getSafeLong(prefs, totalMsKey, 0L)
+                val currentCount = getSafeInt(prefs, countKey, 0)
+                
+                val newTotalMs = currentTotalMs + elapsedMs
+                val newCount = if (elapsedMs >= 15000L || currentCount == 0) currentCount + 1 else currentCount
+
+                prefs.edit()
+                    .putLong(dailyKey, currentDailyMs + elapsedMs)
+                    .putLong(totalMsKey, newTotalMs)
+                    .putLong(countKey, newCount.toLong())
+                    .apply()
+
+                Log.d("AppBlockerService", "Recorded session for $packageName: ${elapsedMs / 1000}s (Total: ${newTotalMs / 1000}s in $newCount sessions)")
             } catch (e: Exception) {
                 Log.e("AppBlockerService", "Error recording usage", e)
             }
@@ -282,8 +299,6 @@ class AppBlockerService : AccessibilityService() {
                 Log.d(TAG, "Blocking app: $targetBlockedPackage")
                 
                 dismissSessionNotification(this)
-                val currentCount = getSafeInt(prefs, "flutter.cancel_count", 0)
-                prefs.edit().putLong("flutter.cancel_count", (currentCount + 1).toLong()).apply()
 
                 val dateKey = getTodayDateKey()
                 val usedMs = getSafeLong(prefs, "flutter.usage_${dateKey}_$targetBlockedPackage", 0L)
