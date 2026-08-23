@@ -217,7 +217,15 @@ class _MainNavigationState extends State<MainNavigation> {
 
     try {
       final prefs = await SharedPreferences.getInstance();
-      final waitTime = (isZenBlock || isLimitBlock) ? 999999 : (prefs.getInt('wait_time_seconds') ?? 10);
+      final now = DateTime.now();
+      final dateKey = '${now.year.toString().padLeft(4, '0')}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}';
+
+      final int realLimit = limitMinutes > 0 ? limitMinutes : (prefs.getInt('limit_$packageName') ?? 0);
+      final int usedMs = prefs.getInt('usage_${dateKey}_$packageName') ?? 0;
+      final int realUsedMins = usedMinutes > 0 ? usedMinutes : (usedMs / (60 * 1000)).toInt();
+      final bool realIsLimitBlock = isLimitBlock || (realLimit > 0 && realUsedMins >= realLimit);
+
+      final waitTime = (isZenBlock || realIsLimitBlock) ? 999999 : (prefs.getInt('wait_time_seconds') ?? 10);
       
       await Future.delayed(Duration.zero);
 
@@ -228,9 +236,9 @@ class _MainNavigationState extends State<MainNavigation> {
             targetAppName: packageName,
             debugInfo: debugInfo,
             isZenBlock: isZenBlock,
-            isLimitBlock: isLimitBlock,
-            usedMinutes: usedMinutes,
-            limitMinutes: limitMinutes,
+            isLimitBlock: realIsLimitBlock,
+            usedMinutes: realUsedMins,
+            limitMinutes: realLimit,
           ),
         ),
       );

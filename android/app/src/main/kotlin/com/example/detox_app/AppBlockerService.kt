@@ -107,6 +107,13 @@ class AppBlockerService : AccessibilityService() {
                     val elapsedMs = if (sessionStartTime > 0L) System.currentTimeMillis() - sessionStartTime else durationMs
                     recordUsage(context, expiredPackage, elapsedMs)
 
+                    val prefs = context.getSharedPreferences("FlutterSharedPreferences", MODE_PRIVATE)
+                    val dateKey = getTodayDateKey()
+                    val usedMs = getSafeLong(prefs, "flutter.usage_${dateKey}_$expiredPackage", 0L)
+                    val limitMins = getSafeInt(prefs, "flutter.limit_$expiredPackage", 0)
+                    val usedMins = (usedMs / (60 * 1000)).toInt()
+                    val isLimitReached = (limitMins > 0) && (usedMins >= limitMins)
+
                     temporarilyAllowedPackage = null
                     sessionExpirationTime = 0L
                     sessionStartTime = 0L
@@ -116,6 +123,9 @@ class AppBlockerService : AccessibilityService() {
                     val launchIntent = Intent(context, MainActivity::class.java).apply {
                         addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
                         putExtra("blocked_package", expiredPackage)
+                        putExtra("is_limit_block", isLimitReached)
+                        putExtra("used_minutes", usedMins)
+                        putExtra("limit_minutes", limitMins)
                     }
                     context.startActivity(launchIntent)
                 }

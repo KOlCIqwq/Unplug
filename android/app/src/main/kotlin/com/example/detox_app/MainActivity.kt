@@ -118,26 +118,36 @@ class MainActivity: FlutterActivity() {
         val blockedPackage = intent.getStringExtra("blocked_package")
         val debugInfo = intent.getStringExtra("debug_info")
         val isZen = intent.getBooleanExtra("is_zen_block", false)
-        val isLimit = intent.getBooleanExtra("is_limit_block", false)
-        val usedMins = intent.getIntExtra("used_minutes", 0)
-        val limitMins = intent.getIntExtra("limit_minutes", 0)
+        val isLimitFromIntent = intent.getBooleanExtra("is_limit_block", false)
+        val usedMinsFromIntent = intent.getIntExtra("used_minutes", 0)
+        val limitMinsFromIntent = intent.getIntExtra("limit_minutes", 0)
 
         if (blockedPackage != null) {
+            val prefs = getSharedPreferences("FlutterSharedPreferences", MODE_PRIVATE)
+            val dateKey = AppBlockerService.getTodayDateKey()
+            val usedMs = AppBlockerService.getSafeLong(prefs, "flutter.usage_${dateKey}_$blockedPackage", 0L)
+            val limitMinsFromPrefs = AppBlockerService.getSafeInt(prefs, "flutter.limit_$blockedPackage", 0)
+            val usedMinsCalculated = (usedMs / (60 * 1000)).toInt()
+
+            val effectiveLimitMins = if (limitMinsFromIntent > 0) limitMinsFromIntent else limitMinsFromPrefs
+            val effectiveUsedMins = if (usedMinsFromIntent > 0) usedMinsFromIntent else usedMinsCalculated
+            val effectiveIsLimit = isLimitFromIntent || (effectiveLimitMins > 0 && effectiveUsedMins >= effectiveLimitMins)
+
             blockedPackageIntent = blockedPackage
             debugInfoIntent = debugInfo
             isZenBlockIntent = isZen
-            isLimitBlockIntent = isLimit
-            usedMinutesIntent = usedMins
-            limitMinutesIntent = limitMins
+            isLimitBlockIntent = effectiveIsLimit
+            usedMinutesIntent = effectiveUsedMins
+            limitMinutesIntent = effectiveLimitMins
             
             flutterEngine?.dartExecutor?.binaryMessenger?.let {
                 val map = mapOf(
                     "package" to blockedPackage,
                     "debug" to debugInfo,
                     "isZenBlock" to isZen,
-                    "isLimitBlock" to isLimit,
-                    "usedMinutes" to usedMins,
-                    "limitMinutes" to limitMins
+                    "isLimitBlock" to effectiveIsLimit,
+                    "usedMinutes" to effectiveUsedMins,
+                    "limitMinutes" to effectiveLimitMins
                 )
                 MethodChannel(it, CHANNEL).invokeMethod("triggerIntervention", map)
             }

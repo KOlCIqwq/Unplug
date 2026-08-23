@@ -39,10 +39,17 @@ class _InterventionScreenState extends State<InterventionScreen>
   bool _showQuotes = true;
   String _phrase = PromptService.getRandomCuratedPrompt();
 
+  late int _limitMinutes;
+  late int _usedMinutes;
+  late bool _isLimitBlock;
+
   @override
   void initState() {
     super.initState();
-    _remainingSeconds = widget.waitTimeSeconds;
+    _limitMinutes = widget.limitMinutes;
+    _usedMinutes = widget.usedMinutes;
+    _isLimitBlock = widget.isLimitBlock || (_limitMinutes > 0 && _usedMinutes >= _limitMinutes);
+    _remainingSeconds = _isLimitBlock ? 999999 : widget.waitTimeSeconds;
 
     final available = _getAvailableSessionMinutes();
     if (!available.contains(_selectedMinutes)) {
@@ -62,17 +69,35 @@ class _InterventionScreenState extends State<InterventionScreen>
       ),
     );
 
-    _startTimer();
-    _loadQuoteSettings();
+    if (!_isLimitBlock && !widget.isZenBlock) {
+      _startTimer();
+    }
+    _loadFreshSettings();
     WidgetsBinding.instance.addObserver(this);
   }
 
-  void _loadQuoteSettings() async {
+  void _loadFreshSettings() async {
     final prefs = await SharedPreferences.getInstance();
     final bool show = prefs.getBool('show_quotes') ?? true;
+    final now = DateTime.now();
+    final dateKey = '${now.year.toString().padLeft(4, '0')}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}';
+
+    final pkg = widget.targetAppName;
+    final int limit = widget.limitMinutes > 0 ? widget.limitMinutes : (prefs.getInt('limit_$pkg') ?? 0);
+    final int usedMs = prefs.getInt('usage_${dateKey}_$pkg') ?? 0;
+    final int usedMins = widget.usedMinutes > 0 ? widget.usedMinutes : (usedMs / (60 * 1000)).toInt();
+    final bool limitBlock = widget.isLimitBlock || (limit > 0 && usedMins >= limit);
+
     if (mounted) {
       setState(() {
         _showQuotes = show;
+        _limitMinutes = limit;
+        _usedMinutes = usedMins;
+        _isLimitBlock = limitBlock;
+        if (limitBlock) {
+          _remainingSeconds = 999999;
+          _timer?.cancel();
+        }
       });
     }
     if (show) {
@@ -80,12 +105,24 @@ class _InterventionScreenState extends State<InterventionScreen>
     }
   }
 
+  String get _displayAppName {
+    final name = widget.targetAppName;
+    if (name.contains('.')) {
+      final parts = name.split('.');
+      if (parts.isNotEmpty) {
+        final last = parts.last;
+        return last[0].toUpperCase() + last.substring(1);
+      }
+    }
+    return name;
+  }
+
   List<int> _getAvailableSessionMinutes() {
     final defaultPresets = [1, 3, 5, 10, 15, 20];
-    if (widget.limitMinutes <= 0) {
+    if (_limitMinutes <= 0) {
       return defaultPresets;
     }
-    final remaining = widget.limitMinutes - widget.usedMinutes;
+    final remaining = _limitMinutes - _usedMinutes;
     if (remaining <= 0) {
       return [1];
     }
@@ -129,7 +166,7 @@ class _InterventionScreenState extends State<InterventionScreen>
   }
 
   void _startTimer() {
-    if (widget.isZenBlock || widget.isLimitBlock) return;
+    if (widget.isZenBlock || _isLimitBlock) return;
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (_remainingSeconds > 0) {
         setState(() {
@@ -248,7 +285,7 @@ class _InterventionScreenState extends State<InterventionScreen>
                           // Timer / Status Text
                           Center(
                             child: Text(
-                              widget.isLimitBlock
+                              _isLimitBlock
                                   ? 'Daily Limit Reached'
                                   : widget.isZenBlock
                                       ? 'Zen Space Active'
@@ -261,17 +298,17 @@ class _InterventionScreenState extends State<InterventionScreen>
                             ),
                           ),
 
-                          if (widget.isLimitBlock) ...[
+                          if (_isLimitBlock) ...[
                             const SizedBox(height: 8),
                             Padding(
                               padding: const EdgeInsets.symmetric(horizontal: 16.0),
                               child: Text(
-                                'You have reached your daily limit of ${widget.limitMinutes}m for ${widget.targetAppName} (Used: ${widget.usedMinutes}m today).',
+                                'You have reached your daily limit of ${_limitMinutes}m for $_displayAppName (Used: ${_usedMinutes}m today).',
                                 textAlign: TextAlign.center,
                                 style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 14),
                               ),
                             ),
-                          ] else if (!widget.isZenBlock && widget.limitMinutes > 0) ...[
+                          ] else if (!widget.isZenBlock && _limitMinutes > 0) ...[
                             const SizedBox(height: 8),
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
@@ -280,7 +317,7 @@ class _InterventionScreenState extends State<InterventionScreen>
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: Text(
-                                'Daily usage: ${widget.usedMinutes}m / ${widget.limitMinutes}m',
+                                'Daily usage: ${_usedMinutes}m / ${_limitMinutes}m',
                                 style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 12),
                               ),
                             ),
@@ -289,10 +326,10 @@ class _InterventionScreenState extends State<InterventionScreen>
                           const SizedBox(height: 24),
 
                           // Action Buttons
-                          if (!widget.isZenBlock && !widget.isLimitBlock && _remainingSeconds == 0) ...[
+                          if (!widget.isZenBlock && !_isLimitBlock && _remainingSeconds == 0) ...[
                             Text(
-                              widget.limitMinutes > 0
-                                  ? 'Set your session limit (${widget.limitMinutes - widget.usedMinutes}m left today)'
+                              _limitMinutes > 0
+                                  ? 'Set your session limit (${_limitMinutes - _usedMinutes}m left today)'
                                   : 'Set your session limit',
                               style: Theme.of(context).textTheme.titleSmall?.copyWith(
                                 color: colorScheme.onSurfaceVariant,
@@ -361,7 +398,7 @@ class _InterventionScreenState extends State<InterventionScreen>
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                               ),
                               child: Text(
-                                widget.isLimitBlock ? 'Close' : 'Cancel',
+                                _isLimitBlock ? 'Close' : 'Cancel',
                                 style: TextStyle(color: colorScheme.onSurface),
                               ),
                             ),
