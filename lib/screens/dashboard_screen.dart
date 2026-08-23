@@ -179,6 +179,22 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     return '${twoDigits(time.hour)}:${twoDigits(time.minute)}';
   }
 
+  String _formatCountdown(int targetEpochMs) {
+    final diffMs = targetEpochMs - DateTime.now().millisecondsSinceEpoch;
+    if (diffMs <= 0) return '00:00';
+    final totalSeconds = (diffMs / 1000).ceil();
+    final hours = totalSeconds ~/ 3600;
+    final minutes = (totalSeconds % 3600) ~/ 60;
+    final seconds = totalSeconds % 60;
+
+    String twoDigits(int n) => n.toString().padLeft(2, '0');
+
+    if (hours > 0) {
+      return '${twoDigits(hours)}:${twoDigits(minutes)}:${twoDigits(seconds)}';
+    }
+    return '${twoDigits(minutes)}:${twoDigits(seconds)}';
+  }
+
   String _formatMinutes(int minutes) {
     if (minutes <= 0) return '0m';
     if (minutes >= 60) {
@@ -556,24 +572,57 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
             // Zen Space Card
             if (_zenModeEndTime > DateTime.now().millisecondsSinceEpoch)
               Card(
-                color: colorScheme.primaryContainer,
+                color: colorScheme.primaryContainer.withValues(alpha: 0.7),
                 elevation: 0,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                  side: BorderSide(color: colorScheme.primary.withValues(alpha: 0.4)),
+                ),
                 child: Padding(
-                  padding: const EdgeInsets.all(20.0),
+                  padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 24.0),
                   child: Column(
                     children: [
-                      const Icon(Icons.self_improvement, size: 40),
-                      const SizedBox(height: 8),
-                      const Text('Zen Space Active', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Ends at ${_formatTime(DateTime.fromMillisecondsSinceEpoch(_zenModeEndTime))}',
-                        style: const TextStyle(fontSize: 15),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.self_improvement_rounded, size: 28, color: colorScheme.primary),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Zen Space Active',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 0.5,
+                              color: colorScheme.primary,
+                            ),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 14),
+                      Text(
+                        _formatCountdown(_zenModeEndTime),
+                        style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 2.0,
+                          color: colorScheme.onPrimaryContainer,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'Ends at ${_formatTime(DateTime.fromMillisecondsSinceEpoch(_zenModeEndTime))}',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      const SizedBox(height: 18),
                       OutlinedButton(
                         onPressed: _exitZenSpace,
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+                          side: BorderSide(color: colorScheme.outline.withValues(alpha: 0.5)),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
                         child: const Text('Exit Early'),
                       ),
                     ],

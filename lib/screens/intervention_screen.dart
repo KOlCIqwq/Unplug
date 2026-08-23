@@ -42,6 +42,7 @@ class _InterventionScreenState extends State<InterventionScreen>
   late int _limitMinutes;
   late int _usedMinutes;
   late bool _isLimitBlock;
+  int _zenModeEndTime = 0;
 
   @override
   void initState() {
@@ -49,7 +50,7 @@ class _InterventionScreenState extends State<InterventionScreen>
     _limitMinutes = widget.limitMinutes;
     _usedMinutes = widget.usedMinutes;
     _isLimitBlock = widget.isLimitBlock || (_limitMinutes > 0 && _usedMinutes >= _limitMinutes);
-    _remainingSeconds = _isLimitBlock ? 999999 : widget.waitTimeSeconds;
+    _remainingSeconds = (_isLimitBlock || widget.isZenBlock) ? 999999 : widget.waitTimeSeconds;
 
     final available = _getAvailableSessionMinutes();
     if (!available.contains(_selectedMinutes)) {
@@ -69,7 +70,7 @@ class _InterventionScreenState extends State<InterventionScreen>
       ),
     );
 
-    if (!_isLimitBlock && !widget.isZenBlock) {
+    if (!_isLimitBlock) {
       _startTimer();
     }
     _loadFreshSettings();
@@ -87,6 +88,7 @@ class _InterventionScreenState extends State<InterventionScreen>
     final int usedMs = prefs.getInt('usage_${dateKey}_$pkg') ?? 0;
     final int usedMins = widget.usedMinutes > 0 ? widget.usedMinutes : (usedMs / (60 * 1000)).toInt();
     final bool limitBlock = widget.isLimitBlock || (limit > 0 && usedMins >= limit);
+    final int zenEnd = prefs.getInt('zen_mode_end_time') ?? 0;
 
     if (mounted) {
       setState(() {
@@ -94,9 +96,9 @@ class _InterventionScreenState extends State<InterventionScreen>
         _limitMinutes = limit;
         _usedMinutes = usedMins;
         _isLimitBlock = limitBlock;
+        _zenModeEndTime = zenEnd;
         if (limitBlock) {
           _remainingSeconds = 999999;
-          _timer?.cancel();
         }
       });
     }
@@ -165,15 +167,35 @@ class _InterventionScreenState extends State<InterventionScreen>
     }
   }
 
+  String _formatCountdown(int targetEpochMs) {
+    final diffMs = targetEpochMs - DateTime.now().millisecondsSinceEpoch;
+    if (diffMs <= 0) return '00:00';
+    final totalSeconds = (diffMs / 1000).ceil();
+    final hours = totalSeconds ~/ 3600;
+    final minutes = (totalSeconds % 3600) ~/ 60;
+    final seconds = totalSeconds % 60;
+
+    String twoDigits(int n) => n.toString().padLeft(2, '0');
+
+    if (hours > 0) {
+      return '${twoDigits(hours)}:${twoDigits(minutes)}:${twoDigits(seconds)}';
+    }
+    return '${twoDigits(minutes)}:${twoDigits(seconds)}';
+  }
+
   void _startTimer() {
-    if (widget.isZenBlock || _isLimitBlock) return;
+    if (_isLimitBlock) return;
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (_remainingSeconds > 0) {
-        setState(() {
-          _remainingSeconds--;
-        });
-      } else {
-        _timer?.cancel();
+      if (mounted) {
+        if (!widget.isZenBlock && _remainingSeconds > 0) {
+          setState(() {
+            _remainingSeconds--;
+          });
+        } else if (widget.isZenBlock) {
+          setState(() {});
+        } else if (_remainingSeconds == 0) {
+          _timer?.cancel();
+        }
       }
     });
   }
@@ -288,7 +310,9 @@ class _InterventionScreenState extends State<InterventionScreen>
                               _isLimitBlock
                                   ? 'Daily Limit Reached'
                                   : widget.isZenBlock
-                                      ? 'Zen Space Active'
+                                      ? (_zenModeEndTime > DateTime.now().millisecondsSinceEpoch
+                                          ? _formatCountdown(_zenModeEndTime)
+                                          : 'Zen Space Active')
                                       : _remainingSeconds > 0 ? '$_remainingSeconds' : 'Ready',
                               textAlign: TextAlign.center,
                               style: Theme.of(context).textTheme.headlineMedium?.copyWith(
@@ -298,7 +322,17 @@ class _InterventionScreenState extends State<InterventionScreen>
                             ),
                           ),
 
-                          if (_isLimitBlock) ...[
+                          if (widget.isZenBlock) ...[
+                            const SizedBox(height: 8),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                              child: Text(
+                                'Zen Space is active. $_displayAppName is not on your whitelist.',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 14),
+                              ),
+                            ),
+                          ] else if (_isLimitBlock) ...[
                             const SizedBox(height: 8),
                             Padding(
                               padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -308,7 +342,7 @@ class _InterventionScreenState extends State<InterventionScreen>
                                 style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 14),
                               ),
                             ),
-                          ] else if (!widget.isZenBlock && _limitMinutes > 0) ...[
+                          ] else if (_limitMinutes > 0) ...[
                             const SizedBox(height: 8),
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
