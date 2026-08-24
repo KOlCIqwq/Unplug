@@ -12,7 +12,11 @@ class AppSelectorScreen extends StatefulWidget {
   State<AppSelectorScreen> createState() => _AppSelectorScreenState();
 }
 
-class _AppSelectorScreenState extends State<AppSelectorScreen> {
+class _AppSelectorScreenState extends State<AppSelectorScreen>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
   bool _isLoading = true;
   List<AppInfo> _apps = [];
   Set<String> _blockedAppPackages = {};
@@ -284,6 +288,7 @@ class _AppSelectorScreenState extends State<AppSelectorScreen> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final colorScheme = Theme.of(context).colorScheme;
     final displayApps = _filteredAndSortedApps;
     /*     final limitedCount = _blockedAppPackages.where((pkg) => (_appLimits[pkg] ?? 0) > 0).length;

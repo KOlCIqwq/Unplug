@@ -12,7 +12,11 @@ class ZenAppsScreen extends StatefulWidget {
   State<ZenAppsScreen> createState() => _ZenAppsScreenState();
 }
 
-class _ZenAppsScreenState extends State<ZenAppsScreen> {
+class _ZenAppsScreenState extends State<ZenAppsScreen>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
   List<AppInfo> _apps = [];
   bool _isLoading = true;
   Set<String> _zenAppPackages = {};
@@ -111,6 +115,7 @@ class _ZenAppsScreenState extends State<ZenAppsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final colorScheme = Theme.of(context).colorScheme;
     final displayApps = _filteredAndSortedApps;
 
