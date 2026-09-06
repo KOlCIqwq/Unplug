@@ -1,0 +1,233 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:padding="12dp"
+    android:background="@drawable/zen_widget_background">
+
+    <!-- STATE 1: IDLE / OFF -->
+    <LinearLayout
+        android:id="@+id/layout_zen_idle"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical">
+
+        <!-- Header -->
+        <LinearLayout
+            android:id="@+id/widget_header_idle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="4dp">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="UNPLUG"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:textColor="@color/zen_widget_text_primary" />
+
+            <TextView
+                android:id="@+id/btn_status_off"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="OFF"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                android:textColor="@color/zen_widget_text_secondary"
+                android:background="@drawable/zen_widget_pill_inactive_bg"
+                android:paddingLeft="10dp"
+                android:paddingRight="10dp"
+                android:paddingStart="10dp"
+                android:paddingEnd="10dp"
+                android:paddingTop="4dp"
+                android:paddingBottom="4dp" />
+        </LinearLayout>
+
+        <!-- Mascot Connected to Socket Illustration (Tap to unplug) -->
+        <ImageView
+            android:id="@+id/img_state_off"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:src="@drawable/zen_state_1_off"
+            android:scaleType="fitCenter" />
+
+        <!-- Preset Duration Pills -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="4dp">
+
+            <Button
+                android:id="@+id/btn_start_15"
+                android:layout_width="0dp"
+                android:layout_height="36dp"
+                android:layout_weight="1"
+                android:layout_marginEnd="6dp"
+                android:text="@string/zen_widget_btn_15"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:textColor="@color/zen_widget_text_primary"
+                android:background="@drawable/zen_widget_btn_bg" />
+
+            <Button
+                android:id="@+id/btn_start_30"
+                android:layout_width="0dp"
+                android:layout_height="36dp"
+                android:layout_weight="1"
+                android:layout_marginEnd="6dp"
+                android:text="@string/zen_widget_btn_30"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:textColor="@color/zen_widget_text_primary"
+                android:background="@drawable/zen_widget_btn_bg" />
+
+            <Button
+                android:id="@+id/btn_start_60"
+                android:layout_width="0dp"
+                android:layout_height="36dp"
+                android:layout_weight="1"
+                android:text="@string/zen_widget_btn_60"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:textColor="@color/zen_widget_text_primary"
+                android:background="@drawable/zen_widget_btn_bg" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- ANIMATING TRANSITION STATE -->
+    <FrameLayout
+        android:id="@+id/layout_zen_animating"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:visibility="gone">
+
+        <ImageView
+            android:id="@+id/img_zen_anim"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:src="@drawable/zen_plug_frame_1"
+            android:scaleType="fitCenter" />
+    </FrameLayout>
+
+    <!-- STATE 2: ZEN MODE ACTIVE / FOCUS TIMER -->
+    <LinearLayout
+        android:id="@+id/layout_zen_active"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:visibility="gone">
+
+        <!-- Top Bar: FOCUS TIMER & ON Status Button -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="4dp">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="FOCUS TIMER"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:textColor="@color/zen_widget_text_primary" />
+
+            <TextView
+                android:id="@+id/btn_status_on"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="ON"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                android:textColor="@color/zen_widget_primary"
+                android:background="@drawable/zen_widget_pill_bg"
+                android:paddingLeft="10dp"
+                android:paddingRight="10dp"
+                android:paddingStart="10dp"
+                android:paddingEnd="10dp"
+                android:paddingTop="4dp"
+                android:paddingBottom="4dp" />
+        </LinearLayout>
+
+        <!-- Middle Graphic: Mascot with Timer inside + Empty Socket on Right -->
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1">
+
+            <ImageView
+                android:id="@+id/img_state_on"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:src="@drawable/zen_state_2_on"
+                android:scaleType="fitCenter" />
+
+            <!-- Position Chronometer in the hollow head loop under the smile -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:orientation="horizontal">
+
+                <FrameLayout
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1.1">
+
+                    <Chronometer
+                        android:id="@+id/zen_chronometer"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="center"
+                        android:layout_marginTop="20dp"
+                        android:textSize="20sp"
+                        android:textStyle="bold"
+                        android:textColor="@color/zen_widget_text_primary" />
+                </FrameLayout>
+
+                <FrameLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="0.9" />
+            </LinearLayout>
+        </FrameLayout>
+
+        <!-- Action Buttons: +15m and End Zen -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="4dp">
+
+            <Button
+                android:id="@+id/btn_add_15"
+                android:layout_width="0dp"
+                android:layout_height="36dp"
+                android:layout_weight="1"
+                android:layout_marginEnd="8dp"
+                android:text="@string/zen_widget_btn_add15"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:textColor="@color/zen_widget_primary"
+                android:background="@drawable/zen_widget_btn_active_bg" />
+
+            <Button
+                android:id="@+id/btn_stop_zen"
+                android:layout_width="0dp"
+                android:layout_height="36dp"
+                android:layout_weight="1"
+                android:text="@string/zen_widget_btn_stop"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:textColor="@color/zen_widget_text_primary"
+                android:background="@drawable/zen_widget_btn_stop_bg" />
+        </LinearLayout>
+    </LinearLayout>
+</FrameLayout>

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="zen_widget_bg">#F9F6EB</color>
+    <color name="zen_widget_surface">#EFE9DA</color>
+    <color name="zen_widget_primary">#F77E36</color>
+    <color name="zen_widget_primary_container">#FFE8DC</color>
+    <color name="zen_widget_text_primary">#222124</color>
+    <color name="zen_widget_text_secondary">#6D675F</color>
+    <color name="zen_widget_text_muted">#9E968C</color>
+    <color name="zen_widget_danger">#D32F2F</color>
+    <color name="zen_widget_danger_bg">#FFEBEE</color>
+    <color name="zen_widget_border">#222124</color>
+</resources>

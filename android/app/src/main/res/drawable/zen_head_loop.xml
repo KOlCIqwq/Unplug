@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="150dp"
+    android:height="120dp"
+    android:viewportWidth="150"
+    android:viewportHeight="120">
+
+    <!-- Orange accent circle behind bottom-left of head -->
+    <path
+        android:fillColor="#F77E36"
+        android:pathData="M 12,75 a 25,25 0 1,0 50,0 a 25,25 0 1,0 -50,0" />
+
+    <!-- Head cord outline (thick charcoal line, hollow center) -->
+    <path
+        android:strokeColor="#222124"
+        android:strokeWidth="8"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:fillColor="#00000000"
+        android:pathData="M 105,94 C 88,106 70,106 52,98 C 34,90 28,76 30,52 C 32,26 52,14 78,14 C 104,14 122,26 124,52 C 126,72 119,84 105,94 Z" />
+
+    <!-- Plug base attached to bottom-right -->
+    <path
+        android:fillColor="#222124"
+        android:pathData="M 106,90 L 114,83 L 123,92 L 115,99 Z" />
+
+    <!-- Plug body -->
+    <path
+        android:fillColor="#222124"
+        android:pathData="M 115,85 L 128,98 C 130,100 130,103 127,106 L 124,109 C 121,112 118,112 116,110 L 103,97 Z" />
+
+    <!-- Plug prongs -->
+    <path
+        android:fillColor="#222124"
+        android:pathData="M 125,104 L 133,112 L 130,115 L 122,107 Z" />
+    <path
+        android:fillColor="#222124"
+        android:pathData="M 120,109 L 128,117 L 125,120 L 117,112 Z" />
+
+    <!-- Sparks near plug -->
+    <path
+        android:strokeColor="#F77E36"
+        android:strokeWidth="3"
+        android:strokeLineCap="round"
+        android:pathData="M 137,105 L 142,103 M 140,113 L 146,113 M 136,120 L 141,124" />
+</vector>

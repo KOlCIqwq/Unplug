@@ -1,4 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="accessibility_service_description">Used by Doomscroll Detox to detect when you open distracting apps so it can show you the breathing timer.</string>
+    <string name="zen_widget_name">Zen Space</string>
+    <string name="zen_widget_description">Quickly start Zen Space and track the countdown on your home screen.</string>
+    <string name="zen_widget_inactive_desc">Start Zen Space:</string>
+    <string name="zen_widget_active_desc">Whitelist only • Stay focused</string>
+    <string name="zen_widget_btn_15">15m</string>
+    <string name="zen_widget_btn_30">30m</string>
+    <string name="zen_widget_btn_60">1hr</string>
+    <string name="zen_widget_btn_add15">+15m</string>
+    <string name="zen_widget_btn_stop">End Zen</string>
 </resources>

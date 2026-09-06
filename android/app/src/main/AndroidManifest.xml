@@ -46,6 +46,22 @@
                 android:name="android.accessibilityservice"
                 android:resource="@xml/accessibility_service_config" />
         </service>
+
+        <receiver
+            android:name=".ZenWidgetProvider"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.example.detox_app.ACTION_START_ZEN" />
+                <action android:name="com.example.detox_app.ACTION_TAP_OUTLET" />
+                <action android:name="com.example.detox_app.ACTION_ADD_TIME" />
+                <action android:name="com.example.detox_app.ACTION_STOP_ZEN" />
+                <action android:name="com.example.detox_app.ACTION_ZEN_EXPIRED" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/zen_widget_info" />
+        </receiver>
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

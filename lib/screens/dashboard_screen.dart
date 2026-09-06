@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:installed_apps/installed_apps.dart';
 import 'package:installed_apps/app_info.dart';
@@ -85,6 +86,9 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   Future<void> _loadStats() async {
     final prefs = await SharedPreferences.getInstance();
+    try {
+      await prefs.reload();
+    } catch (_) {}
     final dateKey = _getTodayDateKey();
     final blocked = prefs.getStringList('blocked_apps') ?? [];
 
@@ -173,6 +177,7 @@ class _DashboardScreenState extends State<DashboardScreen>
         _zenModeEndTime = endTime;
       });
     }
+    _notifyWidgetUpdate();
   }
 
   Future<void> _exitZenSpace() async {
@@ -182,6 +187,16 @@ class _DashboardScreenState extends State<DashboardScreen>
       setState(() {
         _zenModeEndTime = 0;
       });
+    }
+    _notifyWidgetUpdate();
+  }
+
+  Future<void> _notifyWidgetUpdate() async {
+    try {
+      const platform = MethodChannel('com.example.detox_app/intervention');
+      await platform.invokeMethod('updateZenWidget');
+    } catch (e) {
+      debugPrint('[Dashboard] updateZenWidget failed: $e');
     }
   }
 
@@ -765,12 +780,38 @@ class _DashboardScreenState extends State<DashboardScreen>
                         color: colorScheme.primary,
                       ),
                       const SizedBox(height: 8),
-                      const Text(
-                        'Enter Zen Space',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
+                      Wrap(
+                        alignment: WrapAlignment.center,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        spacing: 8,
+                        runSpacing: 4,
+                        children: [
+                          const Text(
+                            'Enter Zen Space',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: colorScheme.primaryContainer,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              'Also available as widget',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: colorScheme.onPrimaryContainer,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 4),
                       Text(
