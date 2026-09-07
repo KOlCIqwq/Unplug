@@ -161,7 +161,7 @@ class AppBlockerService : AccessibilityService() {
                 val smallIconRes = context.applicationInfo.icon.takeIf { it != 0 } ?: android.R.drawable.ic_lock_idle_alarm
 
                 builder.apply {
-                    setContentTitle("Detox: $appName")
+                    setContentTitle("Unplug: $appName")
                     setContentText("Session countdown active")
                     setSmallIcon(smallIconRes)
                     setOngoing(true)

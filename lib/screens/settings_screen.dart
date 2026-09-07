@@ -272,7 +272,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  'To detect when you open a blocked app, Doomscroll Detox requires Accessibility Service permission.',
+                  'To detect when you open a blocked app, Unplug requires Accessibility Service permission.',
                   style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 13),
                 ),
                 const SizedBox(height: 14),

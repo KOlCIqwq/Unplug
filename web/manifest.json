@@ -1,6 +1,6 @@
 {
-    "name": "detox_app",
-    "short_name": "detox_app",
+    "name": "Unplug",
+    "short_name": "Unplug",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

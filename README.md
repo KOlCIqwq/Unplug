@@ -1,6 +1,6 @@
-# detox_app
+# Unplug
 
-A new Flutter project.
+Focus, Reclaim, You. A mindful screen-time and app blocker application built with Flutter.
 
 ## Getting Started
 

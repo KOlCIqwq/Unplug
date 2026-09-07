@@ -15,7 +15,7 @@ final ValueNotifier<ThemeMode> themeNotifier = ValueNotifier<ThemeMode>(ThemeMod
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await _loadSavedTheme();
-  runApp(const DetoxApp());
+  runApp(const UnplugApp());
 }
 
 Future<void> _loadSavedTheme() async {
@@ -30,8 +30,8 @@ Future<void> _loadSavedTheme() async {
   }
 }
 
-class DetoxApp extends StatelessWidget {
-  const DetoxApp({super.key});
+class UnplugApp extends StatelessWidget {
+  const UnplugApp({super.key});
 
   static final ThemeData lightTheme = ThemeData(
     useMaterial3: true,
@@ -136,7 +136,7 @@ class DetoxApp extends StatelessWidget {
       builder: (context, currentThemeMode, _) {
         return MaterialApp(
           navigatorKey: navigatorKey,
-          title: 'Unplug Detox',
+          title: 'Unplug',
           theme: lightTheme,
           darkTheme: darkTheme,
           themeMode: currentThemeMode,
