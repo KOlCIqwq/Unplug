@@ -64,6 +64,9 @@ class PromptService {
   /// Checks if daily quotes need to be fetched (once per day or if empty)
   static Future<void> checkAndFetchDailyQuotes({bool force = false}) async {
     try {
+      if (Platform.environment.containsKey('FLUTTER_TEST')) {
+        return;
+      }
       final prefs = await SharedPreferences.getInstance();
       final todayStr = DateTime.now().toIso8601String().substring(0, 10);
       final lastDate = prefs.getString(_lastFetchDateKey);

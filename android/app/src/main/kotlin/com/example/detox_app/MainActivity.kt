@@ -15,9 +15,23 @@ class MainActivity: FlutterActivity() {
     private var isLimitBlockIntent: Boolean = false
     private var usedMinutesIntent: Int = 0
     private var limitMinutesIntent: Int = 0
+    private var pendingAlarmId: String? = null
+    private var pendingAlarmTitle: String? = null
+    private var pendingOpenAssignTask: Boolean = false
 
     override fun onCreate(savedInstanceState: android.os.Bundle?) {
         super.onCreate(savedInstanceState)
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O_MR1) {
+            setShowWhenLocked(true)
+            setTurnScreenOn(true)
+        }
+        @Suppress("DEPRECATION")
+        window.addFlags(
+            android.view.WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
+            android.view.WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON or
+            android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON or
+            android.view.WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD
+        )
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
             if (checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
                 requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 1002)
@@ -104,6 +118,68 @@ class MainActivity: FlutterActivity() {
                     ZenWidgetProvider.updateAllWidgets(this@MainActivity)
                     result.success(true)
                 }
+                "scheduleAlarm" -> {
+                    val args = call.arguments as? Map<*, *>
+                    val id = args?.get("id") as? String ?: ""
+                    val timestamp = (args?.get("timestamp") as? Number)?.toLong() ?: 0L
+                    val title = args?.get("title") as? String ?: "Alarm"
+                    if (id.isNotEmpty() && timestamp > 0L) {
+                        AlarmReceiver.scheduleAlarm(this@MainActivity, id, timestamp, title)
+                        result.success(true)
+                    } else {
+                        result.error("INVALID_ARGS", "Missing id or timestamp", null)
+                    }
+                }
+                "cancelAlarm" -> {
+                    val args = call.arguments as? Map<*, *>
+                    val id = args?.get("id") as? String ?: call.arguments as? String ?: ""
+                    if (id.isNotEmpty()) {
+                        AlarmReceiver.cancelAlarm(this@MainActivity, id)
+                        result.success(true)
+                    } else {
+                        result.error("INVALID_ARGS", "Missing id", null)
+                    }
+                }
+                "startAlarmRinging" -> {
+                    val args = call.arguments as? Map<*, *>
+                    val title = args?.get("title") as? String ?: "Alarm"
+                    AlarmReceiver.startRinging(this@MainActivity, title)
+                    result.success(true)
+                }
+                "stopAlarmRinging" -> {
+                    AlarmReceiver.stopRinging(this@MainActivity)
+                    result.success(true)
+                }
+                "getPendingAlarm" -> {
+                    val map = if (pendingAlarmId != null) {
+                        mapOf("alarmId" to pendingAlarmId, "title" to pendingAlarmTitle)
+                    } else {
+                        null
+                    }
+                    pendingAlarmId = null
+                    pendingAlarmTitle = null
+                    result.success(map)
+                }
+                "getPendingAssignTask" -> {
+                    val value = pendingOpenAssignTask
+                    pendingOpenAssignTask = false
+                    result.success(value)
+                }
+                "isDndPermissionGranted" -> {
+                    result.success(ZenDndManager.isDndPermissionGranted(this@MainActivity))
+                }
+                "openDndSettings" -> {
+                    ZenDndManager.openDndSettings(this@MainActivity)
+                    result.success(true)
+                }
+                "enableZenSilence" -> {
+                    ZenDndManager.enableZenSilence(this@MainActivity)
+                    result.success(true)
+                }
+                "disableZenSilence" -> {
+                    ZenDndManager.disableZenSilence(this@MainActivity)
+                    result.success(true)
+                }
                 else -> result.notImplemented()
             }
         }
@@ -120,6 +196,32 @@ class MainActivity: FlutterActivity() {
     }
 
     private fun handleIntent(intent: Intent) {
+        val isAlarmRinging = intent.getBooleanExtra("is_alarm_ringing", false)
+        val alarmId = intent.getStringExtra("alarm_id")
+        val alarmTitle = intent.getStringExtra("alarm_title")
+        if (isAlarmRinging && alarmId != null) {
+            pendingAlarmId = alarmId
+            pendingAlarmTitle = alarmTitle
+            flutterEngine?.dartExecutor?.binaryMessenger?.let {
+                MethodChannel(it, CHANNEL).invokeMethod("triggerAlarm", mapOf(
+                    "alarmId" to alarmId,
+                    "title" to (alarmTitle ?: "Alarm")
+                ))
+            }
+            intent.removeExtra("is_alarm_ringing")
+            intent.removeExtra("alarm_id")
+            intent.removeExtra("alarm_title")
+        }
+
+        val openAssignTask = intent.getBooleanExtra("open_assign_task", false)
+        if (openAssignTask) {
+            pendingOpenAssignTask = true
+            flutterEngine?.dartExecutor?.binaryMessenger?.let {
+                MethodChannel(it, CHANNEL).invokeMethod("openTaskPicker", null)
+            }
+            intent.removeExtra("open_assign_task")
+        }
+
         val blockedPackage = intent.getStringExtra("blocked_package")
         val debugInfo = intent.getStringExtra("debug_info")
         val isZen = intent.getBooleanExtra("is_zen_block", false)

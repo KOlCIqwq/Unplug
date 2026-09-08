@@ -6,8 +6,12 @@ import 'screens/intervention_screen.dart';
 import 'screens/app_selector_screen.dart';
 import 'screens/zen_apps_screen.dart';
 import 'screens/settings_screen.dart';
+import 'screens/alarms_screen.dart';
 import 'services/prompt_service.dart';
 import 'services/stats_service.dart';
+import 'services/alarm_service.dart';
+import 'services/focus_task_service.dart';
+import 'models/alarm_item.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 final ValueNotifier<ThemeMode> themeNotifier = ValueNotifier<ThemeMode>(ThemeMode.system);
@@ -68,9 +72,9 @@ class UnplugApp extends StatelessWidget {
       indicatorColor: const Color(0xFFFFDEC9),
       labelTextStyle: WidgetStateProperty.resolveWith((states) {
         if (states.contains(WidgetState.selected)) {
-          return const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFFF77E36));
+          return const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFFF77E36), overflow: TextOverflow.ellipsis);
         }
-        return const TextStyle(fontSize: 12, color: Color(0xFF5D5752));
+        return const TextStyle(fontSize: 11, color: Color(0xFF5D5752), overflow: TextOverflow.ellipsis);
       }),
       iconTheme: WidgetStateProperty.resolveWith((states) {
         if (states.contains(WidgetState.selected)) {
@@ -116,9 +120,9 @@ class UnplugApp extends StatelessWidget {
       indicatorColor: const Color(0xFF6C2E00),
       labelTextStyle: WidgetStateProperty.resolveWith((states) {
         if (states.contains(WidgetState.selected)) {
-          return const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFFFA8C42));
+          return const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFFFA8C42), overflow: TextOverflow.ellipsis);
         }
-        return const TextStyle(fontSize: 12, color: Color(0xFFD6CDC4));
+        return const TextStyle(fontSize: 11, color: Color(0xFFD6CDC4), overflow: TextOverflow.ellipsis);
       }),
       iconTheme: WidgetStateProperty.resolveWith((states) {
         if (states.contains(WidgetState.selected)) {
@@ -167,6 +171,8 @@ class _MainNavigationState extends State<MainNavigation> {
     _pageController = PageController(initialPage: _selectedIndex);
     _setupMethodChannel();
     PromptService.checkAndFetchDailyQuotes();
+    AlarmService.initialize();
+    FocusTaskService.loadTasks();
   }
 
   @override
@@ -190,6 +196,20 @@ class _MainNavigationState extends State<MainNavigation> {
           );
         } else if (args is String) {
           _launchIntervention(args, null, false, false, 0, 0);
+        }
+      } else if (call.method == "triggerAlarm") {
+        final args = call.arguments;
+        if (args is Map) {
+          final alarmId = args['alarmId'] as String? ?? 'default';
+          final title = args['title'] as String? ?? 'Alarm';
+          final existing = AlarmService.alarmsNotifier.value.where((a) => a.id == alarmId).firstOrNull;
+          final alarm = existing ?? AlarmItem(
+            id: alarmId,
+            title: title,
+            hour: DateTime.now().hour,
+            minute: DateTime.now().minute,
+          );
+          AlarmService.triggerAlarm(alarm);
         }
       }
     });
@@ -274,6 +294,7 @@ class _MainNavigationState extends State<MainNavigation> {
     DashboardScreen(),
     AppSelectorScreen(),
     ZenAppsScreen(),
+    AlarmsScreen(),
     SettingsScreen(),
   ];
 
@@ -315,12 +336,17 @@ class _MainNavigationState extends State<MainNavigation> {
           NavigationDestination(
             icon: Icon(Icons.apps_outlined),
             selectedIcon: Icon(Icons.apps),
-            label: 'Blocked Apps',
+            label: 'Blocked',
           ),
           NavigationDestination(
             icon: Icon(Icons.self_improvement_outlined),
             selectedIcon: Icon(Icons.self_improvement),
-            label: 'Zen Apps',
+            label: 'Zen',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.alarm_outlined),
+            selectedIcon: Icon(Icons.alarm),
+            label: 'Alarms',
           ),
           NavigationDestination(
             icon: Icon(Icons.settings_outlined),

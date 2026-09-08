@@ -35,6 +35,7 @@ class ZenWidgetProvider : AppWidgetProvider() {
         private const val REQ_SOCKET_PLUG_BACK = 106
         private const val REQ_ADD_15 = 107
         private const val REQ_STOP = 108
+        private const val REQ_ASSIGN_TASK = 109
         private const val REQ_EXPIRED = 200
 
         fun updateAllWidgets(context: Context) {
@@ -73,6 +74,21 @@ class ZenWidgetProvider : AppWidgetProvider() {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
                     views.setChronometerCountDown(R.id.zen_chronometer, true)
                 }
+
+                // Active Task Label & Tap to Assign
+                val taskTitle = prefs.getString("flutter.zen_active_task_title", null)
+                if (!taskTitle.isNullOrBlank()) {
+                    views.setTextViewText(R.id.txt_zen_task_label, "Task: $taskTitle")
+                } else {
+                    views.setTextViewText(R.id.txt_zen_task_label, "General Zen • Tap to assign")
+                }
+
+                val assignIntent = context.packageManager.getLaunchIntentForPackage(context.packageName) ?: Intent(context, MainActivity::class.java)
+                assignIntent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                assignIntent.putExtra("open_assign_task", true)
+                val pendingAssign = PendingIntent.getActivity(context, REQ_ASSIGN_TASK, assignIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+                views.setOnClickPendingIntent(R.id.txt_zen_task_label, pendingAssign)
+                views.setOnClickPendingIntent(R.id.widget_header_active, pendingAssign)
 
                 // Tapping ON badge triggers plug back in animation & exit
                 views.setOnClickPendingIntent(R.id.btn_status_on, createBroadcastPendingIntent(context, ACTION_STOP_ZEN, 0, REQ_CLOSE))
@@ -234,11 +250,16 @@ class ZenWidgetProvider : AppWidgetProvider() {
                 val minutes = intent.getIntExtra(EXTRA_MINUTES, 15)
                 val endTime = System.currentTimeMillis() + (minutes * 60 * 1000L)
                 val prefs = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
+                val activeTaskId = prefs.getString("flutter.zen_active_task_id", null)
+                val isUnassigned = activeTaskId.isNullOrBlank()
                 prefs.edit()
                     .putLong("flutter.zen_mode_end_time", endTime)
                     .putInt("flutter.zen_last_selected_minutes", minutes)
+                    .putLong("flutter.zen_session_start_time", System.currentTimeMillis())
+                    .putBoolean("flutter.zen_is_unassigned", isUnassigned)
                     .apply()
                 scheduleZenExpirationAlarm(context, endTime)
+                ZenDndManager.enableZenSilence(context)
 
                 val pendingResult = goAsync()
                 animateFrameSequence(context, isForward = true) {
@@ -251,8 +272,15 @@ class ZenWidgetProvider : AppWidgetProvider() {
                 val lastMinutes = AppBlockerService.getSafeInt(prefs, "flutter.zen_last_selected_minutes", 15)
                 val effectiveMinutes = if (lastMinutes > 0) lastMinutes else 15
                 val endTime = System.currentTimeMillis() + (effectiveMinutes * 60 * 1000L)
-                prefs.edit().putLong("flutter.zen_mode_end_time", endTime).apply()
+                val activeTaskId = prefs.getString("flutter.zen_active_task_id", null)
+                val isUnassigned = activeTaskId.isNullOrBlank()
+                prefs.edit()
+                    .putLong("flutter.zen_mode_end_time", endTime)
+                    .putLong("flutter.zen_session_start_time", System.currentTimeMillis())
+                    .putBoolean("flutter.zen_is_unassigned", isUnassigned)
+                    .apply()
                 scheduleZenExpirationAlarm(context, endTime)
+                ZenDndManager.enableZenSilence(context)
 
                 val pendingResult = goAsync()
                 animateFrameSequence(context, isForward = true) {
@@ -273,7 +301,26 @@ class ZenWidgetProvider : AppWidgetProvider() {
             }
             ACTION_STOP_ZEN -> {
                 val prefs = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
-                prefs.edit().putLong("flutter.zen_mode_end_time", 0L).apply()
+                val startMs = AppBlockerService.getSafeLong(prefs, "flutter.zen_session_start_time", 0L)
+                val isUnassigned = prefs.getBoolean("flutter.zen_is_unassigned", false)
+                if (isUnassigned && startMs > 0L) {
+                    val elapsedMs = System.currentTimeMillis() - startMs
+                    var elapsedMins = ((elapsedMs + 30000L) / (60 * 1000L)).toInt()
+                    val sessionMins = AppBlockerService.getSafeInt(prefs, "flutter.zen_last_selected_minutes", 15)
+                    if (elapsedMins > sessionMins) elapsedMins = sessionMins
+                    if (elapsedMins > 0) {
+                        val prev = AppBlockerService.getSafeInt(prefs, "flutter.unassigned_zen_minutes", 0)
+                        prefs.edit().putInt("flutter.unassigned_zen_minutes", prev + elapsedMins).apply()
+                    }
+                }
+                ZenDndManager.disableZenSilence(context)
+                prefs.edit()
+                    .putLong("flutter.zen_mode_end_time", 0L)
+                    .remove("flutter.zen_session_start_time")
+                    .remove("flutter.zen_is_unassigned")
+                    .remove("flutter.zen_active_task_id")
+                    .remove("flutter.zen_active_task_title")
+                    .apply()
                 cancelZenExpirationAlarm(context)
 
                 val pendingResult = goAsync()
@@ -286,7 +333,21 @@ class ZenWidgetProvider : AppWidgetProvider() {
                 val prefs = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
                 val currentEnd = AppBlockerService.getSafeLong(prefs, "flutter.zen_mode_end_time", 0L)
                 if (System.currentTimeMillis() >= currentEnd) {
-                    prefs.edit().putLong("flutter.zen_mode_end_time", 0L).apply()
+                    val startMs = AppBlockerService.getSafeLong(prefs, "flutter.zen_session_start_time", 0L)
+                    val isUnassigned = prefs.getBoolean("flutter.zen_is_unassigned", false)
+                    if (isUnassigned && startMs > 0L) {
+                        val sessionMins = AppBlockerService.getSafeInt(prefs, "flutter.zen_last_selected_minutes", 15)
+                        val prev = AppBlockerService.getSafeInt(prefs, "flutter.unassigned_zen_minutes", 0)
+                        prefs.edit().putInt("flutter.unassigned_zen_minutes", prev + sessionMins).apply()
+                    }
+                    ZenDndManager.disableZenSilence(context)
+                    prefs.edit()
+                        .putLong("flutter.zen_mode_end_time", 0L)
+                        .remove("flutter.zen_session_start_time")
+                        .remove("flutter.zen_is_unassigned")
+                        .remove("flutter.zen_active_task_id")
+                        .remove("flutter.zen_active_task_title")
+                        .apply()
                 }
                 updateAllWidgets(context)
             }

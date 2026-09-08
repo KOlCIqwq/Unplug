@@ -16,6 +16,7 @@ class AppBlockerService : AccessibilityService() {
     companion object {
         private const val NOTIFICATION_CHANNEL_ID = "detox_session_channel"
         private const val NOTIFICATION_ID = 1001
+        var instance: AppBlockerService? = null
 
         var temporarilyAllowedPackage: String? = null
         var launcherPackages: List<String>? = null
@@ -24,6 +25,24 @@ class AppBlockerService : AccessibilityService() {
         var hasEnteredAllowedApp: Boolean = false
         var sessionStartTime: Long = 0L
         private val sessionHandler = android.os.Handler(android.os.Looper.getMainLooper())
+
+        fun launchAlarmScreen(alarmId: String, title: String): Boolean {
+            val service = instance ?: return false
+            return try {
+                val launchIntent = Intent(service, MainActivity::class.java).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                    putExtra("is_alarm_ringing", true)
+                    putExtra("alarm_id", alarmId)
+                    putExtra("alarm_title", title)
+                }
+                service.startActivity(launchIntent)
+                Log.d("AppBlockerService", "Successfully jumped to alarm screen via AccessibilityService")
+                true
+            } catch (e: Exception) {
+                Log.e("AppBlockerService", "Failed to jump to alarm screen via AccessibilityService", e)
+                false
+            }
+        }
         
         fun getTodayDateKey(): String {
             val sdf = java.text.SimpleDateFormat("yyyyMMdd", java.util.Locale.US)
@@ -331,8 +350,15 @@ class AppBlockerService : AccessibilityService() {
         }
     }
 
+    override fun onServiceConnected() {
+        super.onServiceConnected()
+        instance = this
+        Log.d(TAG, "AppBlockerService connected and instance saved")
+    }
+
     override fun onDestroy() {
         super.onDestroy()
+        if (instance == this) instance = null
         dismissSessionNotification(this)
     }
 

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/services.dart';
 import '../main.dart';
+import '../services/dnd_service.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -19,6 +20,7 @@ class _SettingsScreenState extends State<SettingsScreen>
   String _themeModeString = 'system';
   bool _showQuotes = true;
   bool _isLoading = true;
+  bool _silenceInZen = false;
 
   final List<int> _waitOptions = [5, 10, 15, 30, 60];
 
@@ -30,10 +32,12 @@ class _SettingsScreenState extends State<SettingsScreen>
 
   Future<void> _loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
+    final silence = await DndService.loadPreference();
     setState(() {
       _waitTimeSeconds = prefs.getInt('wait_time_seconds') ?? 10;
       _themeModeString = prefs.getString('theme_mode') ?? 'system';
       _showQuotes = prefs.getBool('show_quotes') ?? true;
+      _silenceInZen = silence;
       _isLoading = false;
     });
   }
@@ -71,6 +75,48 @@ class _SettingsScreenState extends State<SettingsScreen>
     await prefs.setBool('show_quotes', value);
     setState(() {
       _showQuotes = value;
+    });
+  }
+
+  Future<void> _toggleSilenceInZen(bool value) async {
+    if (value) {
+      final granted = await DndService.isDndPermissionGranted();
+      if (!granted && mounted) {
+        final proceed = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            title: const Row(
+              children: [
+                Icon(Icons.do_not_disturb_on_rounded, color: Color(0xFFF77E36)),
+                SizedBox(width: 8),
+                Text('Do Not Disturb Access'),
+              ],
+            ),
+            content: const Text(
+              'To silence notifications and phone calls when Zen Space is active, Android requires Do Not Disturb access permission.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(ctx, true);
+                  DndService.openDndSettings();
+                },
+                child: const Text('Grant Access'),
+              ),
+            ],
+          ),
+        );
+        if (proceed != true) return;
+      }
+    }
+    await DndService.setSilenceEnabled(value);
+    setState(() {
+      _silenceInZen = value;
     });
   }
 
@@ -225,6 +271,39 @@ class _SettingsScreenState extends State<SettingsScreen>
 
                 const SizedBox(height: 28),
 
+                // Zen Space Silence & Do Not Disturb Section
+                Text(
+                  'Zen Space Silence & Focus',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Silence your phone while concentrating in Zen Space.',
+                  style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 13),
+                ),
+                const SizedBox(height: 14),
+                Card(
+                  color: colorScheme.surfaceContainerHighest,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  child: SwitchListTile(
+                    title: const Text('Silence Phone in Zen Space', style: TextStyle(fontWeight: FontWeight.w600)),
+                    subtitle: const Text(
+                      'Activates Do Not Disturb / Silent mode during Zen Space and automatically restores previous sound settings when it finishes',
+                      style: TextStyle(fontSize: 12),
+                    ),
+                    secondary: Icon(Icons.do_not_disturb_on_rounded, color: colorScheme.primary),
+                    value: _silenceInZen,
+                    activeTrackColor: colorScheme.primary,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 6.0),
+                    onChanged: _toggleSilenceInZen,
+                  ),
+                ),
+
+                const SizedBox(height: 28),
+
                 // Intervention Wait Time Section
                 Text(
                   'Intervention Wait Time',
@@ -287,6 +366,19 @@ class _SettingsScreenState extends State<SettingsScreen>
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     backgroundColor: colorScheme.primary,
                     foregroundColor: colorScheme.onPrimary,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  onPressed: () {
+                    DndService.openDndSettings();
+                  },
+                  icon: const Icon(Icons.do_not_disturb_on_outlined),
+                  label: const Text('Do Not Disturb Access Settings'),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    side: BorderSide(color: colorScheme.outline.withValues(alpha: 0.5)),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
                 ),
